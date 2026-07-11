@@ -58,15 +58,29 @@ const CONN: Record<BenchStatus, { dot: string; label: string; color: string }> =
   error: { dot: '○', label: 'HERMES UNREACHABLE', color: 'var(--critical)' },
 };
 
+const DEFAULT_REPO = 'https://github.com/frankie-eight-days/watson-vending-bench';
+const looksLikeGithubUrl = (u: string) =>
+  /^(https?:\/\/)?(www\.)?github\.com\/[\w.-]+\/[\w.-]+/i.test(u.trim());
+
 export function BenchView() {
   const { events, engagementId, agents } = useEngagement();
   const { isDemo } = useAppMode();
   const { selectAgent } = useSelection();
-  const { status, messages, sendUser, commence } = useBenchSocket(engagementId);
+  const { status, messages, agentState, sendUser, commence } = useBenchSocket(engagementId);
   const [draft, setDraft] = useState('');
-  const [repoUrl, setRepoUrl] = useState('github.com/watson-labs/vending-bench-fork');
+  const [repoUrl, setRepoUrl] = useState(DEFAULT_REPO);
+  const [repoEdited, setRepoEdited] = useState(false);
   const [commenceSent, setCommenceSent] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Conversationally-scoped repo/ready flowing from the brain over the socket.
+  const stateRepoUrl = typeof agentState?.repoUrl === 'string' ? agentState.repoUrl.trim() : '';
+  const stateReady = agentState?.ready === true;
+
+  // Reflect the scoped repo into the field until the operator takes over.
+  useEffect(() => {
+    if (!repoEdited && stateRepoUrl) setRepoUrl(stateRepoUrl);
+  }, [stateRepoUrl, repoEdited]);
 
   // Event-stream working feed (replay-safe, cursor-bound).
   const eventLines = useMemo<TermLine[]>(() => {
@@ -105,14 +119,19 @@ export function BenchView() {
   const running = commenceSent || agents.length > 1 || phase !== 'Bench';
   const conn = CONN[status];
 
+  // Prefer the field; fall back to the conversationally-scoped repo when empty.
+  const effectiveRepo = (repoUrl.trim() || stateRepoUrl).trim();
+  const repoValid = looksLikeGithubUrl(effectiveRepo);
+  const canCommence = !running && (repoValid || stateReady);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [lines.length]);
 
   const doCommence = () => {
-    if (running || !repoUrl.trim()) return;
+    if (!canCommence) return;
     setCommenceSent(true);
-    commence(repoUrl);
+    commence(effectiveRepo);
   };
 
   return (

@@ -3,7 +3,9 @@
  *
  * Connects to `${BRAIN_WS_BASE}/engagements/:id/bench` (WebSocket upgrade) and
  * speaks the brain's protocol:
- *   Inbound:  { type:'hermes', text } · { type:'status', phase }  (others ignored)
+ *   Inbound:  { type:'hermes', text } · { type:'status', phase } ·
+ *             { type:'cf_agent_state', state } (Agents SDK state sync; carries
+ *             the conversationally-scoped repoUrl / ready flag)  (others ignored)
  *   Outbound: { type:'user', text }   · { type:'commence', repoUrl }
  *
  * This is a management/steering surface, NOT the replay render path — every
@@ -25,9 +27,17 @@ export interface BenchMessage {
 
 const MAX_RETRIES = 4;
 
+/** Conversationally-scoped agent state synced from the brain over the socket. */
+export interface BenchAgentState {
+  repoUrl?: string;
+  ready?: boolean;
+  [k: string]: unknown;
+}
+
 export function useBenchSocket(engagementId: string) {
   const [status, setStatus] = useState<BenchStatus>('connecting');
   const [messages, setMessages] = useState<BenchMessage[]>([]);
+  const [agentState, setAgentState] = useState<BenchAgentState | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const retryRef = useRef(0);
   const closedByUs = useRef(false);
@@ -42,6 +52,7 @@ export function useBenchSocket(engagementId: string) {
   useEffect(() => {
     closedByUs.current = false;
     retryRef.current = 0;
+    setAgentState(null);
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
     const connect = () => {
@@ -67,10 +78,12 @@ export function useBenchSocket(engagementId: string) {
           return;
         }
         if (!msg || typeof msg !== 'object') return;
-        const m = msg as { type?: string; text?: string; phase?: string };
+        const m = msg as { type?: string; text?: string; phase?: string; state?: BenchAgentState };
         if (m.type === 'hermes' && m.text) push({ role: 'hermes', text: m.text });
         else if (m.type === 'status' && m.phase) push({ role: 'system', text: `Phase → ${m.phase}` });
-        // cf_agent_* and unknown frames are ignored per the protocol.
+        else if (m.type === 'cf_agent_state' && m.state && typeof m.state === 'object')
+          setAgentState((prev) => ({ ...(prev ?? {}), ...m.state }));
+        // other cf_agent_* and unknown frames are ignored per the protocol.
       };
       ws.onerror = () => setStatus('error');
       ws.onclose = () => {
@@ -111,8 +124,9 @@ export function useBenchSocket(engagementId: string) {
   const commence = useCallback(
     async (repoUrl: string) => {
       const url = repoUrl.trim();
-      if (!url) return;
-      push({ role: 'user', text: `COMMENCE RESEARCH · ${url}` });
+      // Empty is allowed only when the brain already scoped the repo into state;
+      // it then commences off state.repoUrl. Otherwise the caller gates on canCommence.
+      push({ role: 'user', text: `COMMENCE RESEARCH${url ? ` · ${url}` : ''}` });
       const ws = wsRef.current;
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'commence', repoUrl: url }));
@@ -136,5 +150,5 @@ export function useBenchSocket(engagementId: string) {
     [engagementId, push],
   );
 
-  return { status, messages, sendUser, commence };
+  return { status, messages, agentState, sendUser, commence };
 }
