@@ -126,24 +126,33 @@ function toBase64(str: string): string {
   return btoa(bin);
 }
 
-export async function openPr(token: string, input: OpenPrInput): Promise<OpenPrResult> {
+export interface CommitFilesInput {
+  owner: string;
+  repo: string;
+  base: string;
+  branchName: string;
+  files: PrFile[];
+  message?: string;
+}
+
+export interface CommitFilesResult {
+  ok: boolean;
+  branch?: string;
+  commitSha?: string;
+  error?: string;
+}
+
+/**
+ * Commit a set of files onto `branchName` on top of `base` in ONE commit
+ * (blobs → tree → commit → ref, creating or force-updating the ref). NO PR.
+ * Shared by /implement and the commit-files path of /pr.
+ */
+export async function commitFilesToBranch(
+  token: string,
+  input: CommitFilesInput,
+): Promise<CommitFilesResult> {
   const { owner, repo, base, branchName, files } = input;
   try {
-    // Direct mode: PR straight from an already-pushed branch (full real diff).
-    if (input.headBranch) {
-      const pr = await gh(token, "POST", `/repos/${owner}/${repo}/pulls`, {
-        title: input.title ?? input.pitchTitle,
-        head: input.headBranch,
-        base,
-        body: renderBody(input),
-        draft: input.draft ?? false,
-      });
-      if (pr.status >= 300) {
-        return { ok: false, error: `open pr: ${pr.status} ${JSON.stringify(pr.json)}`, branch: input.headBranch };
-      }
-      return { ok: true, prUrl: pr.json.html_url, prNumber: pr.json.number, branch: input.headBranch };
-    }
-
     // 1. Resolve base branch head commit + its tree.
     const baseRef = await gh(token, "GET", `/repos/${owner}/${repo}/git/ref/heads/${base}`);
     if (baseRef.status >= 300) {
@@ -180,7 +189,7 @@ export async function openPr(token: string, input: OpenPrInput): Promise<OpenPrR
     }
 
     // 4. Create a commit.
-    const commitMsg = `${input.title ?? input.pitchTitle}\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>`;
+    const commitMsg = `${input.message ?? `Watson: author ${files.length} file(s) on ${branchName}`}\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>`;
     const commit = await gh(token, "POST", `/repos/${owner}/${repo}/git/commits`, {
       message: commitMsg,
       tree: tree.json.sha,
@@ -191,13 +200,12 @@ export async function openPr(token: string, input: OpenPrInput): Promise<OpenPrR
     }
     const commitSha: string = commit.json.sha;
 
-    // 5. Create (or fast-forward) the branch ref.
+    // 5. Create (or force fast-forward) the branch ref.
     const createRef = await gh(token, "POST", `/repos/${owner}/${repo}/git/refs`, {
       ref: `refs/heads/${branchName}`,
       sha: commitSha,
     });
     if (createRef.status === 422) {
-      // ref exists — force update it.
       const upd = await gh(token, "PATCH", `/repos/${owner}/${repo}/git/refs/heads/${branchName}`, {
         sha: commitSha,
         force: true,
@@ -209,7 +217,43 @@ export async function openPr(token: string, input: OpenPrInput): Promise<OpenPrR
       return { ok: false, error: `create ref: ${createRef.status} ${JSON.stringify(createRef.json)}` };
     }
 
-    // 6. Open the PR.
+    return { ok: true, branch: branchName, commitSha };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export async function openPr(token: string, input: OpenPrInput): Promise<OpenPrResult> {
+  const { owner, repo, base, branchName, files } = input;
+  try {
+    // Direct mode: PR straight from an already-pushed branch (full real diff).
+    if (input.headBranch) {
+      const pr = await gh(token, "POST", `/repos/${owner}/${repo}/pulls`, {
+        title: input.title ?? input.pitchTitle,
+        head: input.headBranch,
+        base,
+        body: renderBody(input),
+        draft: input.draft ?? false,
+      });
+      if (pr.status >= 300) {
+        return { ok: false, error: `open pr: ${pr.status} ${JSON.stringify(pr.json)}`, branch: input.headBranch };
+      }
+      return { ok: true, prUrl: pr.json.html_url, prNumber: pr.json.number, branch: input.headBranch };
+    }
+
+    // Commit-files mode: land the files on branchName in one commit, then PR it.
+    const committed = await commitFilesToBranch(token, {
+      owner,
+      repo,
+      base,
+      branchName,
+      files,
+      message: input.title ?? input.pitchTitle,
+    });
+    if (!committed.ok) return { ok: false, error: committed.error, branch: branchName };
+    const commitSha = committed.commitSha!;
+
+    // Open the PR.
     const pr = await gh(token, "POST", `/repos/${owner}/${repo}/pulls`, {
       title: input.title ?? `${input.pitchTitle}`,
       head: branchName,

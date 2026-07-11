@@ -16,6 +16,7 @@ JSON), streams progress + parsed metric points into Convex via the frozen
 | GET | `/health` | Liveness (no container). Reports whether secrets are loaded. |
 | GET | `/ping` | Spins a dedicated health container and runs `echo` (infra proof). |
 | POST | `/run` | Clone + install + run a benchmark profile, return the metric. |
+| POST | `/implement` | Commit agent-authored files to a branch (NO PR). |
 | POST | `/pr` | Create branch + commit files + open a templated PR on the fork. |
 
 ## POST /run — the contract the brain's Lab calls
@@ -85,6 +86,37 @@ curl -X POST https://watson-sandbox-runner.frankkevinwalsh.workers.dev/run \
 
 Candidate run: same call with `"ref":"feat/memory-compaction"` and
 `"seriesLabel":"candidate"`.
+
+## POST /implement — land agent-authored code on a branch (no PR)
+
+For the Lab to push a live-authored candidate branch, then `/run` it, then (for
+winners) `/pr` it in `headBranch` mode.
+
+```jsonc
+{
+  "branchName": "lab/candidate-<engagementId>",   // required — created/force-updated off base
+  "base": "main",                                  // optional (default "main")
+  "files": [ { "path": "src/llm/context.ts", "content": "…full file…" } ], // required, non-empty
+  "message": "lab: memory compaction candidate",   // optional commit message
+  "owner": "frankie-eight-days",                   // optional (defaults set)
+  "repo": "watson-vending-bench"                   // optional
+}
+```
+
+Response: `{ "ok": true, "branch": "...", "commitSha": "..." }`. One commit
+(blobs → tree → commit → ref) on top of `base`; nested paths are fine; existing
+branches are force fast-forwarded. NO pull request is opened.
+
+```bash
+curl -X POST https://watson-sandbox-runner.frankkevinwalsh.workers.dev/implement \
+  -H 'content-type: application/json' \
+  -d '{"branchName":"lab/candidate-eng1","base":"main",
+       "files":[{"path":"src/llm/context.ts","content":"…"}]}'
+```
+
+Typical Lab flow: `POST /implement` (author the branch) → `POST /run`
+`{ref:"lab/candidate-eng1", command:"npm run run:demo"}` (measure it) → if it
+wins, `POST /pr` `{headBranch:"lab/candidate-eng1", ...}` (open the real PR).
 
 ## POST /pr — open the real PR (the root-parameter money shot)
 

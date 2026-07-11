@@ -17,7 +17,7 @@
 
 import { getSandbox, type Sandbox as SandboxClass } from "@cloudflare/sandbox";
 import { ConvexEmitter, type MetricPoint } from "./emit";
-import { openPr, type OpenPrInput } from "./github";
+import { openPr, commitFilesToBranch, type OpenPrInput } from "./github";
 
 export { Sandbox } from "@cloudflare/sandbox";
 
@@ -380,6 +380,43 @@ async function handlePr(req: Request, env: Env): Promise<Response> {
   return Response.json(result, { status: result.ok ? 200 : 500 });
 }
 
+interface ImplementBody {
+  branchName: string;
+  base?: string;
+  files: Array<{ path: string; content: string }>;
+  message?: string;
+  owner?: string;
+  repo?: string;
+}
+
+async function handleImplement(req: Request, env: Env): Promise<Response> {
+  if (!env.GITHUB_TOKEN) {
+    return Response.json({ ok: false, error: "GITHUB_TOKEN secret not configured" }, { status: 500 });
+  }
+  let body: ImplementBody;
+  try {
+    body = (await req.json()) as ImplementBody;
+  } catch {
+    return Response.json({ ok: false, error: "invalid JSON body" }, { status: 400 });
+  }
+  if (!body.branchName || !Array.isArray(body.files) || body.files.length === 0) {
+    return Response.json(
+      { ok: false, error: "missing required field(s): branchName, files[]" },
+      { status: 400 },
+    );
+  }
+
+  const result = await commitFilesToBranch(env.GITHUB_TOKEN, {
+    owner: body.owner || DEFAULT_OWNER,
+    repo: body.repo || DEFAULT_REPO,
+    base: body.base || "main",
+    branchName: body.branchName,
+    files: body.files,
+    message: body.message,
+  });
+  return Response.json(result, { status: result.ok ? 200 : 500 });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -420,6 +457,10 @@ export default {
 
     if (url.pathname === "/pr" && request.method === "POST") {
       return handlePr(request, env);
+    }
+
+    if (url.pathname === "/implement" && request.method === "POST") {
+      return handleImplement(request, env);
     }
 
     return new Response(
