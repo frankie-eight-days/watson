@@ -1,17 +1,33 @@
 /**
  * ConsoleDrawer — the bottom drawer. Shows the selected agent's live event feed,
  * rendered per type (thought / tool_call+tool_result correlated by callId /
- * handoff / error / status / artifact / metric), plus a steering input box.
+ * handoff / error / status / artifact / metric / steering), plus a REAL steering
+ * input box.
  *
- * The steering box is a STUB (held locally + logged) — Tab A/B own real steering
- * injection. It is wired to look and feel real.
+ * Steering writes to Convex `steering:appendSteering` (which the brain consumes
+ * and which also re-emits a `steering` event into the stream). We echo the line
+ * optimistically and dedupe it against that real event by the mutation's returned
+ * seq, so it never double-renders. The box is read-only unless an agent is
+ * selected, the engagement is live (Convex, not the demo), and the cursor is at
+ * the live tail (scrubbing back = replay = read-only).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { type WatsonEvent, isEventType } from '@watson/shared';
 import { agentEvents, correlateToolCalls } from '@/lib/fold';
 import { useEngagement } from '@/state/hooks';
+import { useAppMode } from '@/state/switcher';
+import { appendSteering, canWriteSteering } from '@/lib/steering';
+import { EVENT_SOURCE } from '@/lib/config';
 import { formatClock, formatUsd } from '@/lib/format';
 import { StatusDot } from './primitives';
+
+interface PendingSteering {
+  id: string;
+  agentId: string;
+  text: string;
+  state: 'sending' | 'sent' | 'error';
+  seq?: number;
+}
 
 function KV({ data }: { data: Record<string, unknown> | unknown }) {
   const text = useMemo(() => {
@@ -179,23 +195,76 @@ export function ConsoleDrawer({
   open: boolean;
   onToggle: () => void;
 }) {
-  const { events, selectedAgentId, agents, sendSteering } = useEngagement();
+  const { events, engagementId, selectedAgentId, agents, replay } = useEngagement();
+  const { isDemo } = useAppMode();
   const [draft, setDraft] = useState('');
+  const [pending, setPending] = useState<PendingSteering[]>([]);
+  const [confirm, setConfirm] = useState<string | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
 
   const feed = useMemo(() => agentEvents(events, selectedAgentId), [events, selectedAgentId]);
   const callArgs = useMemo(() => correlateToolCalls(feed), [feed]);
   const agent = agents.find((a) => a.id === selectedAgentId) ?? null;
+  const agentName = agent?.label ?? agent?.role ?? 'agent';
+
+  // The seqs of real steering events already in this agent's feed — used to
+  // retire the optimistic echo once the mutation's re-emitted event arrives.
+  const realSteeringSeqs = useMemo(
+    () => new Set(feed.filter((e) => e.type === 'steering').map((e) => e.seq)),
+    [feed],
+  );
+  const visiblePending = useMemo(
+    () =>
+      pending.filter(
+        (p) => p.agentId === selectedAgentId && !(p.seq != null && realSteeringSeqs.has(p.seq)),
+      ),
+    [pending, selectedAgentId, realSteeringSeqs],
+  );
+
+  // Steering is live-only: an agent must be selected, the source Convex, not the
+  // demo engagement, and the cursor at the live tail (scrubbed back = read-only).
+  const canSteer =
+    !!selectedAgentId && !isDemo && EVENT_SOURCE === 'convex' && replay.atEnd && canWriteSteering();
+  const readOnlyHint = !selectedAgentId
+    ? 'Select an agent to steer'
+    : isDemo || EVENT_SOURCE !== 'convex'
+      ? 'Read-only — demo replay'
+      : !replay.atEnd
+        ? 'Read-only — return to live to steer'
+        : `Steer ${agentName}…`;
 
   // Auto-scroll to newest as the replay streams in.
   useEffect(() => {
     if (open && feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
-  }, [feed.length, open]);
+  }, [feed.length, visiblePending.length, open]);
 
-  const submit = () => {
-    if (!draft.trim() || !selectedAgentId) return;
-    sendSteering(selectedAgentId, draft.trim());
+  // Prune optimistic echoes once their real event has landed.
+  useEffect(() => {
+    setPending((p) => p.filter((x) => !(x.seq != null && realSteeringSeqs.has(x.seq))));
+  }, [realSteeringSeqs]);
+
+  // Auto-hide the "sent" confirmation.
+  useEffect(() => {
+    if (!confirm) return;
+    const t = window.setTimeout(() => setConfirm(null), 2600);
+    return () => window.clearTimeout(t);
+  }, [confirm]);
+
+  const submit = async () => {
+    const text = draft.trim();
+    if (!text || !canSteer || !selectedAgentId) return;
+    const id = `pend_${Date.now()}`;
+    const targetId = selectedAgentId;
+    const targetName = agentName;
+    setPending((p) => [...p, { id, agentId: targetId, text, state: 'sending' }]);
     setDraft('');
+    try {
+      const res = await appendSteering({ engagementId, agentId: targetId, text, from: 'operator' });
+      setPending((p) => p.map((x) => (x.id === id ? { ...x, state: 'sent', seq: res.seq } : x)));
+      setConfirm(`sent to ${targetName}`);
+    } catch {
+      setPending((p) => p.map((x) => (x.id === id ? { ...x, state: 'error' } : x)));
+    }
   };
 
   return (
@@ -236,35 +305,70 @@ export function ConsoleDrawer({
               <div className="flex h-full items-center justify-center text-sm text-ink-3">
                 No agent selected.
               </div>
-            ) : feed.length === 0 ? (
+            ) : feed.length === 0 && visiblePending.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-ink-3">
                 No events for this agent yet at the current cursor.
               </div>
             ) : (
-              feed.map((ev) => <Line key={`${ev.seq}`} ev={ev} callArgs={callArgs} />)
+              <>
+                {feed.map((ev) => (
+                  <Line key={`${ev.seq}`} ev={ev} callArgs={callArgs} />
+                ))}
+                {visiblePending.map((p) => (
+                  <div key={p.id} className="animate-fade-slide-in flex border-b border-hairline/60 py-2 last:border-0">
+                    <div className="flex w-16 shrink-0 flex-col items-end pr-3 pt-0.5">
+                      <span className="text-[0.625rem] text-ink-3">
+                        {p.state === 'error' ? 'failed' : p.state === 'sent' ? 'sent' : 'sending…'}
+                      </span>
+                    </div>
+                    <div
+                      className="mr-3 mt-1 w-0.5 shrink-0 self-stretch rounded-full"
+                      style={{ background: p.state === 'error' ? 'var(--critical)' : 'var(--accent)' }}
+                    />
+                    <div className="min-w-0 flex-1 pr-4">
+                      <div className="mb-1 eyebrow">steering</div>
+                      <div
+                        className="rounded-md px-2 py-1 text-[0.8125rem]"
+                        style={
+                          p.state === 'error'
+                            ? { background: 'var(--critical-soft)', color: 'var(--critical)' }
+                            : { background: 'var(--accent-soft)', color: 'var(--accent-ink)', opacity: p.state === 'sending' ? 0.7 : 1 }
+                        }
+                      >
+                        operator: {p.text}
+                        {p.state === 'error' && <span className="ml-2 text-[0.6875rem]">— not delivered</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </>
             )}
           </div>
 
-          <div className="flex items-center gap-2 border-t border-hairline px-4 py-2.5">
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && submit()}
-              disabled={!selectedAgentId}
-              placeholder={
-                selectedAgentId
-                  ? `Steer ${agent?.label ?? agent?.role ?? 'agent'}…`
-                  : 'Select an agent to steer'
-              }
-              className="focus-ring flex-1 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-sm text-ink placeholder:text-ink-3 disabled:opacity-50"
-            />
-            <button
-              onClick={submit}
-              disabled={!selectedAgentId || !draft.trim()}
-              className="focus-ring rounded-lg bg-accent px-3.5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-            >
-              Send
-            </button>
+          <div className="border-t border-hairline px-4 py-2.5">
+            <div className="flex items-center gap-2">
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && submit()}
+                disabled={!canSteer}
+                placeholder={readOnlyHint}
+                className="focus-ring flex-1 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-sm text-ink placeholder:text-ink-3 disabled:opacity-50"
+              />
+              <button
+                onClick={submit}
+                disabled={!canSteer || !draft.trim()}
+                className="focus-ring rounded-lg bg-accent px-3.5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              >
+                Send
+              </button>
+            </div>
+            {confirm && (
+              <div className="animate-fade-in mt-1.5 flex items-center gap-1.5 text-[0.6875rem] text-ink-3">
+                <span className="text-[color:var(--good)]">✓</span>
+                <span>{confirm}</span>
+              </div>
+            )}
           </div>
         </>
       )}
