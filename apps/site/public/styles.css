@@ -211,6 +211,11 @@ h3 { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
 }
+
+/* Tighter, single-unit spacing for the How-it-works section. */
+.how { padding-block: clamp(44px, 7vw, 84px); }
+.how .diagram-scroll { margin-top: clamp(20px, 3vw, 32px); }
+.how .card-row { margin-top: clamp(18px, 2.4vw, 28px); }
 .flow-svg { display: block; width: 100%; min-width: 760px; height: auto; }
 
 .card-row {
@@ -270,6 +275,10 @@ h3 { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
 }
 .pr-ref .pr-id { color: var(--accent-ink); font-weight: 600; }
 .pr-ref .pr-repo { color: var(--ink-2); }
+.pr-ref .pr-tag {
+  color: var(--good); font-weight: 600; font-size: 0.75rem;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
 .delta { color: var(--good); font-weight: 600; font-family: var(--font-mono); }
 
 /* ---------- Built on ---------- */
@@ -289,6 +298,12 @@ h3 { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
 .final .wrap { display: flex; flex-direction: column; align-items: center; }
 .final h2 { font-size: clamp(2rem, 4.2vw, 3rem); }
 .final .oneliner { margin: 16px auto 32px; text-align: center; }
+.pr-links {
+  margin: 18px 0 0; font-size: 0.8125rem; color: var(--ink-3);
+  display: flex; gap: 10px; align-items: center; justify-content: center;
+}
+.pr-links a { color: var(--ink-2); font-weight: 500; }
+.pr-links a:hover { color: var(--accent-ink); }
 .footer-line {
   margin-top: 44px; font-size: 0.8125rem; color: var(--ink-3);
   display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;

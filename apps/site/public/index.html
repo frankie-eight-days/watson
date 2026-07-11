@@ -20,11 +20,6 @@
     </svg>
     Labbench
   </a>
-  <nav class="topbar-nav" aria-label="Sections">
-    <a class="topbar-link" href="#how">How it works</a>
-    <a class="topbar-link" href="#proof">Proof</a>
-    <a class="topbar-link" href="#built">Built on</a>
-  </nav>
 </header>
 
 <main id="top">
@@ -299,15 +294,15 @@
     <div class="wrap">
       <div class="reveal">
         <p class="eyebrow">Proof</p>
-        <h2 class="section-head">It already shipped a real PR.</h2>
-        <p class="oneliner">The system is real end to end: Labbench read the papers, wrote the code, ran the benchmarks in cloud sandboxes, and opened the pull request.</p>
+        <h2 class="section-head">Three hypotheses tested. Two PRs shipped.</h2>
+        <p class="oneliner">The system is real end to end: Labbench read the papers, wrote the code, and ran the benchmarks in cloud sandboxes. The winning hypothesis &mdash; a typed business-state briefing from KV memory before every tool-loop request &mdash; lifted long-horizon Total Assets by <strong>+27.3%</strong>, and Labbench opened the pull request.</p>
       </div>
 
       <div class="proof-card reveal">
         <div class="proof-figure">
-          <p class="fig-title">Mean Total Assets &mdash; memory-constrained long-horizon run</p>
+          <p class="fig-title">Mean Total Assets &mdash; long-horizon run</p>
           <p class="fig-sub">Vending-Bench fork &middot; higher is better</p>
-          <svg class="proof-chart" viewBox="0 0 400 288" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bar chart: baseline mean total assets $850.99 versus Labbench's memory-compaction patch $963.47, a 13.2 percent improvement. Three runs per arm, exploratory.">
+          <svg class="proof-chart" viewBox="0 0 400 288" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bar chart: baseline mean total assets $688.52 versus Labbench's typed business-state briefing $876.50, a 27.3 percent improvement. Three runs per arm; single runs range $720 to $960.">
             <!-- gridlines + y labels ($0 baseline) -->
             <line x1="54" y1="26"  x2="384" y2="26"  stroke="rgba(17,20,34,0.07)" stroke-width="1"/>
             <line x1="54" y1="131" x2="384" y2="131" stroke="rgba(17,20,34,0.07)" stroke-width="1"/>
@@ -316,32 +311,35 @@
             <text class="svg-caption" x="46" y="135" font-size="10" text-anchor="end">$500</text>
             <text class="svg-caption" x="46" y="240" font-size="10" text-anchor="end">$0</text>
 
-            <!-- baseline bar (recessive), value 850.99 -> top y 57.3 -->
-            <path d="M110 236 L110 61.3 Q110 57.3 114 57.3 L184 57.3 Q188 57.3 188 61.3 L188 236 Z"
+            <!-- baseline bar (recessive), value 688.52 -> top y 91.4 -->
+            <path d="M110 236 L110 95.4 Q110 91.4 114 91.4 L184 91.4 Q188 91.4 188 95.4 L188 236 Z"
                   fill="#eceef2" stroke="rgba(17,20,34,0.12)" stroke-width="1"/>
-            <text class="svg-mono" x="149" y="50" font-size="12.5" font-weight="600" text-anchor="middle" fill="#565c6b">$850.99</text>
+            <text class="svg-mono" x="149" y="84" font-size="12.5" font-weight="600" text-anchor="middle" fill="#565c6b">$688.52</text>
             <text class="svg-label" x="149" y="256" font-size="11.5" text-anchor="middle" fill="#565c6b">Baseline</text>
 
-            <!-- Labbench bar (accent), value 963.47 -> top y 33.7 -->
-            <path d="M250 236 L250 37.7 Q250 33.7 254 33.7 L324 33.7 Q328 33.7 328 37.7 L328 236 Z"
+            <!-- Labbench bar (accent), value 876.50 -> top y 51.9 -->
+            <path d="M250 236 L250 55.9 Q250 51.9 254 51.9 L324 51.9 Q328 51.9 328 55.9 L328 236 Z"
                   fill="#3a45d6"/>
-            <text class="svg-mono" x="289" y="26" font-size="12.5" font-weight="600" text-anchor="middle" fill="#2b33b0">$963.47</text>
+            <text class="svg-mono" x="289" y="44" font-size="12.5" font-weight="600" text-anchor="middle" fill="#2b33b0">$876.50</text>
             <text class="svg-label" x="289" y="256" font-size="11.5" text-anchor="middle" fill="#16181f" font-weight="600">Labbench patch</text>
 
             <!-- delta -->
-            <text x="343" y="46" font-size="12" font-weight="700" fill="#17916a" font-family="'SF Mono',ui-monospace,Menlo,monospace" text-anchor="start">+13.2%</text>
+            <text x="343" y="62" font-size="12" font-weight="700" fill="#17916a" font-family="'SF Mono',ui-monospace,Menlo,monospace" text-anchor="start">+27.3%</text>
           </svg>
-          <p class="fig-caption">n=3 runs per arm &middot; exploratory result &middot; illustrative of the shipped patch</p>
+          <p class="fig-caption">+27.3% mean, n=3; single runs $720&ndash;$960</p>
         </div>
 
         <div class="proof-pr">
-          <p class="pr-eyebrow">The pull request</p>
+          <p class="pr-eyebrow">The pull requests</p>
           <div class="pr-ref">
-            <span class="pr-repo">watson-vending-bench</span> &middot; <span class="pr-id">PR #3</span><br>
-            memory compaction for long-horizon agents
+            <span class="pr-repo">watson-vending-bench</span> &middot; <a class="pr-id" href="https://github.com/frankie-eight-days/watson-vending-bench/pull/5">PR #5</a> &middot; <span class="pr-tag">winner</span><br>
+            typed business-state briefing from KV memory
           </div>
-          <p style="margin:0 0 18px;color:var(--ink-2);font-size:0.9375rem;">Baseline <span class="mono">$850.99</span> &rarr; patched <span class="mono">$963.47</span> &nbsp;<span class="delta">+13.2%</span></p>
-          <a class="btn btn-primary" href="https://github.com/frankie-eight-days/watson-vending-bench/pull/3">View the PR &rarr;</a>
+          <div class="pr-ref">
+            <span class="pr-repo">watson-vending-bench</span> &middot; <a class="pr-id" href="https://github.com/frankie-eight-days/watson-vending-bench/pull/4">PR #4</a><br>
+            Reflexion &mdash; persist failure lessons across the run
+          </div>
+          <p style="margin:0;color:var(--ink-2);font-size:0.9375rem;">Baseline <span class="mono">$688.52</span> &rarr; winner <span class="mono">$876.50</span> &nbsp;<span class="delta">+27.3%</span></p>
         </div>
       </div>
     </div>
@@ -581,10 +579,13 @@
       <h2>See it run.</h2>
       <p class="oneliner">A live engagement, end to end, in the cloud.</p>
       <a class="btn btn-primary btn-lg" href="https://watson-demo.frankkevinwalsh.workers.dev">See the live demo &rarr;</a>
+      <p class="pr-links">
+        <a href="https://github.com/frankie-eight-days/watson-vending-bench/pull/5">PR #5 &#8599;</a>
+        <span aria-hidden="true">&middot;</span>
+        <a href="https://github.com/frankie-eight-days/watson-vending-bench/pull/4">PR #4 &#8599;</a>
+      </p>
       <p class="footer-line">
         <span>Labbench — built for the Hermes Buildathon, 2026.</span>
-        <span aria-hidden="true">&middot;</span>
-        <a href="https://github.com/frankie-eight-days/watson-vending-bench/pull/3">View the shipped PR &rarr;</a>
       </p>
     </div>
   </section>
