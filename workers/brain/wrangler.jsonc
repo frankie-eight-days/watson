@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "watson-brain",
+  "account_id": "b9adc0458ab5f7d63447a4f0a4b81d00",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+
+  // Hermes — one Durable Object instance per engagement (keyed by engagement id).
+  "durable_objects": {
+    "bindings": [{ "name": "HERMES", "class_name": "HermesAgent" }]
+  },
+  // Agents SDK requires SQLite-backed DOs.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HermesAgent"] }],
+
+  // Non-secret config. Secrets (OPENAI_API_KEY, LINKUP_API_KEY) come from
+  // .dev.vars locally and `wrangler secret put` in prod.
+  "vars": {
+    "CONVEX_URL": "https://friendly-sheep-865.convex.cloud",
+    "CONVEX_SITE_URL": "https://friendly-sheep-865.convex.site",
+    "MODEL_TERRA": "gpt-5.6-terra",
+    "MODEL_LUNA": "gpt-5.6-luna",
+    "WATSON_EMIT_MODE": "convex"
+    // "OPENAI_BASE_URL": "https://…"  // optional venue proxy override
+  }
+}

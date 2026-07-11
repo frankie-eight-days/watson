@@ -1,0 +1,17 @@
+# Local dev secrets for `wrangler dev`. Copy to `.dev.vars` and fill in real
+# values (from repo-root .env.local). `.dev.vars` is gitignored — NEVER commit
+# real secrets. In prod set these with `wrangler secret put OPENAI_API_KEY` etc.
+
+# OpenAI (or venue proxy) key for gpt-5.6-terra / gpt-5.6-luna.
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Linkup scholarly search (used by the Library workflow in Wave 2).
+LINKUP_API_KEY=00000000-0000-0000-0000-000000000000
+
+# --- Optional local overrides for vars normally set in wrangler.jsonc ---
+# CONVEX_URL=https://friendly-sheep-865.convex.cloud
+# CONVEX_SITE_URL=https://friendly-sheep-865.convex.site
+# MODEL_TERRA=gpt-5.6-terra
+# MODEL_LUNA=gpt-5.6-luna
+# OPENAI_BASE_URL=https://your-venue-proxy/v1
+# WATSON_EMIT_MODE=convex
