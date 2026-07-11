@@ -36,7 +36,7 @@ import {
   type AgentTotals,
   type EngagementTotals,
 } from '@/lib/fold';
-import { EVENT_SOURCE, REPLAY } from '@/lib/config';
+import { EVENT_SOURCE, REPLAY, DEMO_LOCKED } from '@/lib/config';
 
 // ── Steering (local stub — Tab A/B own the real injection) ────────────────
 export interface LocalSteering {
@@ -115,7 +115,10 @@ export function EngagementProvider({
   const [allEvents, setAllEvents] = useState<WatsonEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [cursorIndex, setCursorIndex] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  // The demo mirror lands PAUSED at seq 0 — a clean, intentional intro frame
+  // rather than a run already mid-flight. (watson-web keeps the "comes alive on
+  // load" auto-play.) The tour still seeks/populates views while it runs.
+  const [playing, setPlaying] = useState(!DEMO_LOCKED);
   // Tracks the last-seen event count so live appends can follow the tail.
   const prevTotalRef = useRef(0);
   const [speed, setSpeed] = useState<number>(REPLAY.defaultSpeed);

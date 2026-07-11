@@ -19,16 +19,6 @@ import { ReplayBar } from './ReplayBar';
 import { WelcomeModal } from './WelcomeModal';
 import { Tour } from './Tour';
 
-const WELCOME_KEY = 'watson.demo.welcomeSeen';
-
-function welcomeSeen(): boolean {
-  try {
-    return localStorage.getItem(WELCOME_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
 function NoEngagement({ onShowDemo }: { onShowDemo: () => void }) {
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
@@ -65,9 +55,10 @@ export function Shell() {
   // Start collapsed so the canvas is clean on arrival; the user (or clicking an
   // agent via focusAgent) expands it.
   const [consoleOpen, setConsoleOpen] = useState(false);
-  // Demo mirror only: `?tour=1` jumps straight into the tour; otherwise show the
-  // explainer on first visit (re-openable from "?").
-  const [welcomeOpen, setWelcomeOpen] = useState(() => DEMO_LOCKED && !AUTO_TOUR && !welcomeSeen());
+  // Demo mirror: ALWAYS greet on load — `?tour=1` jumps straight into the tour,
+  // otherwise the welcome/tour offer opens on arrival (no localStorage gate; every
+  // judge is a fresh session). The header "?" re-opens it.
+  const [welcomeOpen, setWelcomeOpen] = useState(() => DEMO_LOCKED && !AUTO_TOUR);
   const [tourOpen, setTourOpen] = useState(() => AUTO_TOUR);
   const { selectAgent } = useSelection();
   const { hasEngagement, setShowDemo } = useAppMode();
@@ -77,20 +68,9 @@ export function Shell() {
     setConsoleOpen(true);
   };
 
-  const markSeen = () => {
-    try {
-      localStorage.setItem(WELCOME_KEY, '1');
-    } catch {
-      /* ignore */
-    }
-  };
-  const closeWelcome = () => {
-    setWelcomeOpen(false);
-    markSeen();
-  };
+  const closeWelcome = () => setWelcomeOpen(false);
   const startTour = () => {
     setWelcomeOpen(false);
-    markSeen();
     setTourOpen(true);
   };
 
