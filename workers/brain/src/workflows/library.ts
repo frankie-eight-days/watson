@@ -25,8 +25,12 @@ export interface LibraryArgs {
   parentAgentId: string;
   dossierBody: string;
   weakness: string;
+  /** The client's goal/metric, threaded into pitch synthesis. */
+  goal?: string;
   linkupApiKey?: string;
   exaApiKey?: string;
+  /** Operator steering threaded from Hermes (president-level redirect). */
+  steer?: string[];
   model: ModelClient;
 }
 
@@ -272,6 +276,16 @@ export async function runLibrary(ctx: BrainContext, args: LibraryArgs): Promise<
   await ctx.handoff(grader.emitter, director.agentId, 'grading complete', `Scored ${CANDIDATES.length} papers; top = memory compaction (MemGPT).`);
   await ctx.status(grader.emitter, 'done');
 
+  // --- steering checkpoint: operator can redirect the director before synthesis ---
+  const directorSteer = await ctx.checkSteering(director.emitter, director.agentId);
+  const allSteer = [...(args.steer ?? []), ...directorSteer];
+  const steerNote = allSteer.length
+    ? `\n\n[OPERATOR STEERING — you MUST honor this in the pitches]: ${allSteer.join(' | ')}`
+    : '';
+  if (allSteer.length) {
+    await ctx.emit(director.emitter, 'thought', { text: `Applying operator steering to pitch synthesis: ${allSteer.join(' | ')}`, title: 'steering' });
+  }
+
   // --- terra synthesis: 2-3 pitches anchored on the weakness + graded pond ---
   const synthRes = await think(ctx, director.emitter, args.model, {
     modelId: ctx.models.terra,
@@ -281,9 +295,10 @@ export async function runLibrary(ctx: BrainContext, args: LibraryArgs): Promise<
     system:
       'You are the research director for Watson. Propose 2-3 concrete, winnable code-change pitches that fix the given weakness in a Vending-Bench agent fork. Each pitch must cite ONE real paper (title + arXiv id) from the graded set, name the target file in the fork, and state expected metric impact (Total Assets / days-survived). Order by expected impact, best first. Reply ONLY JSON: [{"id":"pitch_a","title":"...","hypothesis":"...","paper":"MemGPT","arxiv":"2310.08560","expectedImpact":"large","targetFile":"src/llm/context.ts"}]',
     user:
-      `Dossier:\n${args.dossierBody.slice(0, 1800)}\n\nWeakness: ${args.weakness}\n\n` +
+      `Client goal: ${args.goal ?? 'make the agent survive longer on the benchmark'}\n\nDossier:\n${args.dossierBody.slice(0, 1800)}\n\nWeakness: ${args.weakness}\n\n` +
       `Graded papers (highest relevance first):\n${CANDIDATES.map((c) => `- ${c.title} (arXiv:${c.arxiv}, score ${scoreOf(c.id).score.toFixed(2)}) — ${c.note}`).join('\n')}` +
-      `\n\nMulti-source corroboration (deduped): ${unique.slice(0, 6).map((h) => h.title).filter(Boolean).join(' | ') || '(none)'}`,
+      `\n\nMulti-source corroboration (deduped): ${unique.slice(0, 6).map((h) => h.title).filter(Boolean).join(' | ') || '(none)'}` +
+      steerNote,
     fallback: '[]',
     silent: true,
   });

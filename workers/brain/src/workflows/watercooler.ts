@@ -17,6 +17,8 @@ export interface WatercoolerArgs {
   parentAgentId: string;
   repoUrl?: string;
   ref?: string;
+  /** The client's goal/metric, threaded so the dossier reflects the ask. */
+  goal?: string;
   model: ModelClient;
 }
 
@@ -149,7 +151,7 @@ export async function runWatercooler(
     maxTokens: 900,
     system:
       'You are the ingestion orchestrator for an AI research agency (Watson). From the scout cards, write a concise Repo Dossier in markdown for a Vending-Bench agent fork. It MUST cover: (1) the agent harness loop (how it calls the model, uses tools, advances days), and (2) exactly WHERE long-horizon coherence fails — name the file and function. Then give a one-sentence "WEAKNESS:" line naming the precise seam to attack. Be specific and technical.',
-    user: `Target: ${owner}/${repo}@${ref}\n\nScout cards:\n\n${cards.join('\n\n')}`,
+    user: `Target: ${owner}/${repo}@${ref}\nClient goal: ${args.goal ?? 'make the agent survive longer on the benchmark'}\n\nScout cards:\n\n${cards.join('\n\n')}`,
     fallback:
       `# Repo Dossier — ${owner}/${repo}\n\n` +
       `The harness runs a model→tool loop advancing simulated days. Long-horizon coherence fails in ` +

@@ -25,16 +25,24 @@ import { modelClientFromEnv } from './lib/model';
 import { runWatercooler } from './workflows/watercooler';
 import { runLibrary, type Pitch } from './workflows/library';
 import { runLab } from './workflows/lab';
+import { extractJson } from './workflows/util';
 
 const PRESIDENT_PROMPT = `You are Hermes, the president of Watson — an AI research agency retained to make a client's coding agents run longer on a benchmark (a Vending-Bench fork). You run the engagement like a consulting principal.
 
-On each turn: understand the client's ask, ask sharp clarifying questions (target repo, the metric to move, constraints, deadline), and confirm scope crisply. Be concise and decisive. Do NOT start real work in chat — when scope is clear, tell the client to hit COMMENCE and you will dispatch the research teams (watercooler ingestion, library paper pipeline, lab experiments).`;
+YOUR JOB IN CHAT is to establish two things before any work starts:
+  (a) the TARGET REPO URL to work on, and
+  (b) the METRIC / GOAL the client wants moved (e.g. "survive more days before bankruptcy", "higher end-of-run Total Assets").
+Ask sharp, concise clarifying questions until you have both. As soon as you know both, reflect them back explicitly in this shape: "I've got it: repo <URL>, goal <goal>. Say COMMENCE when you're ready." Be decisive and brief. Do NOT start real work in chat — on COMMENCE you dispatch the research teams (watercooler ingestion, library paper pipeline, lab experiments).`;
 
 const MAX_HISTORY = 24;
 
 export interface HermesState {
   engagementId: string;
   repoUrl?: string;
+  /** The client's goal/metric captured during chat scoping. */
+  goal?: string;
+  /** True once both repo + goal are established (UI can enable COMMENCE). */
+  ready?: boolean;
   phase: 'bench' | 'ingestion' | 'library' | 'lab' | 'conference' | 'done';
   hermesSpawned: boolean;
   history: ChatCompletionMessageParam[];
@@ -115,17 +123,27 @@ export class HermesAgent extends Agent<Env, HermesState> {
   // --------------------------------------------------------------- lifecycle
 
   override async onConnect(connection: Connection, _ctx: ConnectionContext): Promise<void> {
-    const ctx = this.makeContext();
+    // Greet SYNCHRONOUSLY and FIRST so the greeting can never trail the user's
+    // first message. Only greet a FRESH engagement (no history, not yet
+    // commenced) — a reconnect to an in-progress/scoped engagement stays quiet.
+    const fresh =
+      !this.state.hermesSpawned &&
+      (this.state.history?.length ?? 0) === 0 &&
+      this.state.phase === 'bench';
+    if (fresh) {
+      this.sendHermes(
+        connection,
+        `Hermes online for engagement "${this.name}". Tell me the target repo and the metric you want moved, and I'll confirm scope before you COMMENCE.`,
+      );
+    }
+    // Emit the Hermes spawn (best-effort, AFTER greeting so it never blocks it).
     try {
-      await this.hermesEmitter(ctx); // ensure Hermes spawn is emitted at engagement start
+      const ctx = this.makeContext();
+      await this.hermesEmitter(ctx);
       await ctx.close();
     } catch (err) {
       console.error('onConnect emit failed:', err);
     }
-    this.sendHermes(
-      connection,
-      `Hermes online for engagement "${this.name}". Tell me the target repo and the metric you want moved, then say COMMENCE.`,
-    );
   }
 
   override async onMessage(connection: Connection, message: WSMessage): Promise<void> {
@@ -177,9 +195,51 @@ export class HermesAgent extends Agent<Env, HermesState> {
     ].slice(-MAX_HISTORY);
     this.setState({ ...this.state, history: nextHistory });
 
+    // Reply to the client immediately, then capture scope best-effort (so a slow
+    // or failed extraction never delays the chat turn).
     await ctx.status(emitter, 'waiting', 'awaiting client');
     this.sendHermes(connection, result.text || '(no response)');
+    await this.captureScope(nextHistory);
     await ctx.close();
+  }
+
+  /**
+   * Best-effort scope capture: a cheap luna extraction over the transcript pulls
+   * the target repo URL + goal, persisted into DO state so COMMENCE (and the UI's
+   * enable-COMMENCE affordance) can use them. Never throws; never clobbers a
+   * known value with null.
+   */
+  private async captureScope(history: ChatCompletionMessageParam[]): Promise<void> {
+    try {
+      const transcript = history
+        .map((m) => `${m.role}: ${typeof m.content === 'string' ? m.content : ''}`)
+        .join('\n')
+        .slice(-4000);
+      const res = await modelClientFromEnv(this.env).call({
+        model: this.env.MODEL_LUNA,
+        effort: 'low',
+        maxTokens: 200,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Extract the engagement scope from this consulting chat. Reply ONLY JSON: {"repoUrl": string|null, "goal": string|null, "ready": boolean}. repoUrl = the GitHub repo the client wants worked on (null if not stated). goal = a short phrase for the metric/outcome they want moved (null if not stated). ready = true only if BOTH repoUrl and goal are known.',
+          },
+          { role: 'user', content: transcript },
+        ],
+      });
+      const parsed = extractJson<{ repoUrl?: string | null; goal?: string | null; ready?: boolean }>(res.text);
+      if (!parsed) return;
+      const repoUrl =
+        typeof parsed.repoUrl === 'string' && /github\.com/i.test(parsed.repoUrl)
+          ? parsed.repoUrl
+          : this.state.repoUrl;
+      const goal = typeof parsed.goal === 'string' && parsed.goal.trim() ? parsed.goal.trim() : this.state.goal;
+      const ready = Boolean(repoUrl) && Boolean(goal);
+      this.setState({ ...this.state, repoUrl, goal, ready });
+    } catch (err) {
+      console.error('captureScope failed (non-fatal):', err);
+    }
   }
 
   /**
@@ -191,6 +251,7 @@ export class HermesAgent extends Agent<Env, HermesState> {
    */
   async commence(repoUrl?: string): Promise<{ phase: string; repoUrl?: string; report: string }> {
     const nextRepo = repoUrl ?? this.state.repoUrl ?? 'https://github.com/frankie-eight-days/watson-vending-bench';
+    const goal = this.state.goal ?? 'make the coding agent survive longer (more days before bankruptcy, higher end-of-run Total Assets)';
     this.setState({ ...this.state, repoUrl: nextRepo, phase: 'ingestion' });
 
     const ctx = this.makeContext();
@@ -202,9 +263,9 @@ export class HermesAgent extends Agent<Env, HermesState> {
       // ---- Phase 1: Watercooler (repo ingestion) ----
       await ctx.status(emitter, 'running', 'phase: watercooler');
       this.broadcast(JSON.stringify({ type: 'status', phase: 'watercooler', repoUrl: nextRepo }));
-      await ctx.emit(emitter, 'thought', { text: `COMMENCE for ${nextRepo}. Dispatching the watercooler ingestion team.`, title: 'commence' });
+      await ctx.emit(emitter, 'thought', { text: `COMMENCE for ${nextRepo}. Client goal: ${goal}. Dispatching the watercooler ingestion team.`, title: 'commence' });
 
-      const wc = await runWatercooler(ctx, { parentAgentId: 'hermes', repoUrl: nextRepo, ref: 'main', model });
+      const wc = await runWatercooler(ctx, { parentAgentId: 'hermes', repoUrl: nextRepo, ref: 'main', goal, model });
       await ctx.emit(emitter, 'thought', { text: `Ingestion done: "${wc.dossierTitle}". Weakness: ${wc.weakness}`, title: 'review' });
       lines.push(`Dossier: "${wc.dossierTitle}".`);
 
@@ -213,12 +274,20 @@ export class HermesAgent extends Agent<Env, HermesState> {
       await ctx.status(emitter, 'running', 'phase: library');
       this.broadcast(JSON.stringify({ type: 'status', phase: 'library' }));
 
+      // Steering checkpoint between phases: operator can redirect delegation.
+      const hermesSteer = await ctx.checkSteering(emitter, 'hermes');
+      if (hermesSteer.length) {
+        await ctx.emit(emitter, 'thought', { text: `Operator steering before library: ${hermesSteer.join(' | ')}. Threading it into the research director.`, title: 'steering' });
+      }
+
       const lib = await runLibrary(ctx, {
         parentAgentId: 'hermes',
         dossierBody: wc.dossierBody,
         weakness: wc.weakness,
+        goal,
         linkupApiKey: this.env.LINKUP_API_KEY,
         exaApiKey: this.env.EXA_API_KEY,
+        steer: hermesSteer,
         model,
       });
       const top: Pitch | undefined = lib.pitches[0];
