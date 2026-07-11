@@ -12,19 +12,17 @@
  */
 import { useMemo, useState } from 'react';
 import type { MetricSeries } from '@/lib/fold';
+import { BASELINE_COLOR, candidateColor, isBaselineLabel } from '@/lib/vizColors';
 import { formatNum } from '@/lib/format';
 import { useResizeWidth } from '@/lib/useResizeWidth';
 
 const HEIGHT = 300;
 const PAD = { top: 20, right: 88, bottom: 34, left: 44 };
 
-function colorForLabel(label: string): string {
-  return /base/i.test(label) ? 'var(--baseline-line)' : 'var(--candidate-line)';
-}
-
 interface Scaled {
   label: string;
   color: string;
+  dashed: boolean;
   pts: { x: number; y: number; sx: number; sy: number }[];
 }
 
@@ -32,11 +30,14 @@ export function MetricChart({
   series,
   unit,
   yFloor,
+  xLabel = (x) => `v${x}`,
 }: {
   series: MetricSeries[];
   unit?: string;
   /** Force the y-axis to start here (e.g. 0) rather than the data min. */
   yFloor?: number;
+  /** Format an x-domain value for the axis + tooltip (e.g. day → "d12"). */
+  xLabel?: (x: number) => string;
 }) {
   const { ref, width } = useResizeWidth(640);
   const [hoverX, setHoverX] = useState<number | null>(null);
@@ -58,11 +59,17 @@ export function MetricChart({
     const sx = (x: number) => PAD.left + ((x - minX) / (maxX - minX || 1)) * plotW;
     const sy = (y: number) => PAD.top + plotH - ((y - minY) / (top - minY || 1)) * plotH;
 
-    const scaled: Scaled[] = series.map((s) => ({
-      label: s.label,
-      color: colorForLabel(s.label),
-      pts: s.points.map((p) => ({ ...p, sx: sx(p.x), sy: sy(p.y) })),
-    }));
+    let candIdx = 0;
+    const scaled: Scaled[] = series.map((s) => {
+      const baseline = isBaselineLabel(s.label);
+      const color = baseline ? BASELINE_COLOR : candidateColor(candIdx++);
+      return {
+        label: s.label,
+        color,
+        dashed: baseline,
+        pts: s.points.map((p) => ({ ...p, sx: sx(p.x), sy: sy(p.y) })),
+      };
+    });
 
     const yTicks = Array.from({ length: 5 }, (_, i) => minY + ((top - minY) * i) / 4);
     const xTickVals = Array.from(new Set(all.map((p) => p.x))).sort((a, b) => a - b);
@@ -136,20 +143,22 @@ export function MetricChart({
           );
         })}
 
-        {/* x labels */}
-        {model.xTickVals.map((xv) => (
-          <text
-            key={xv}
-            x={model.sx(xv)}
-            y={HEIGHT - PAD.bottom + 18}
-            textAnchor="middle"
-            className="tnum"
-            fontSize={10.5}
-            fill="var(--ink-3)"
-          >
-            v{xv}
-          </text>
-        ))}
+        {/* x labels (thinned to ~7 to avoid collisions with many days) */}
+        {model.xTickVals
+          .filter((_, i, arr) => arr.length <= 8 || i % Math.ceil(arr.length / 7) === 0 || i === arr.length - 1)
+          .map((xv) => (
+            <text
+              key={xv}
+              x={model.sx(xv)}
+              y={HEIGHT - PAD.bottom + 18}
+              textAnchor="middle"
+              className="tnum"
+              fontSize={10.5}
+              fill="var(--ink-3)"
+            >
+              {xLabel(xv)}
+            </text>
+          ))}
 
         {/* crosshair */}
         {hover && (
@@ -168,15 +177,35 @@ export function MetricChart({
         {model.scaled.map((s) => {
           const d = s.pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.sx},${p.sy}`).join(' ');
           const last = s.pts[s.pts.length - 1];
+          const showAllMarkers = s.pts.length <= 12;
           return (
             <g key={s.label}>
-              <path d={d} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-              {/* markers */}
-              {s.pts.map((p, i) => (
-                <circle key={i} cx={p.sx} cy={p.sy} r={i === s.pts.length - 1 ? 4 : 2.6} fill={s.color} stroke="var(--surface)" strokeWidth={i === s.pts.length - 1 ? 2 : 0} />
-              ))}
-              {/* pulsing head on the last point */}
-              {last && (
+              <path
+                d={d}
+                fill="none"
+                stroke={s.color}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                strokeDasharray={s.dashed ? '5 4' : undefined}
+                opacity={s.dashed ? 0.85 : 1}
+              />
+              {/* markers (thinned for long candidate lines) */}
+              {s.pts.map((p, i) =>
+                showAllMarkers || i === s.pts.length - 1 ? (
+                  <circle
+                    key={i}
+                    cx={p.sx}
+                    cy={p.sy}
+                    r={i === s.pts.length - 1 ? 4 : 2.6}
+                    fill={s.color}
+                    stroke="var(--surface)"
+                    strokeWidth={i === s.pts.length - 1 ? 2 : 0}
+                  />
+                ) : null,
+              )}
+              {/* pulsing head on the last point (candidates only — baseline is a static reference) */}
+              {last && !s.dashed && (
                 <circle cx={last.sx} cy={last.sy} r={7} fill="none" stroke={s.color} strokeWidth={1.2} className="animate-pulse-soft" />
               )}
               {/* direct end label — identity never by color alone */}
@@ -200,7 +229,14 @@ export function MetricChart({
       <div className="mt-1 flex items-center gap-4 pl-11">
         {model.scaled.map((s) => (
           <div key={s.label} className="flex items-center gap-1.5">
-            <span className="h-0.5 w-4 rounded-full" style={{ background: s.color }} />
+            <span
+              className="h-0.5 w-4 rounded-full"
+              style={
+                s.dashed
+                  ? { backgroundImage: `repeating-linear-gradient(90deg, ${s.color} 0 4px, transparent 4px 7px)` }
+                  : { background: s.color }
+              }
+            />
             <span className="text-xs text-ink-2">{s.label}</span>
           </div>
         ))}
@@ -213,7 +249,7 @@ export function MetricChart({
           className="pointer-events-none absolute z-10 rounded-lg border border-hairline bg-surface px-2.5 py-1.5 shadow-lift"
           style={{ left: Math.min(hover.cx + 10, width - 130), top: PAD.top }}
         >
-          <div className="eyebrow mb-1">v{hover.nearest}</div>
+          <div className="eyebrow mb-1">{xLabel(hover.nearest)}</div>
           {hover.rows.map((r) => (
             <div key={r.label} className="flex items-center justify-between gap-3 text-xs">
               <span className="flex items-center gap-1.5">

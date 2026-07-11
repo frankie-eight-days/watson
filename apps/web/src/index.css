@@ -34,8 +34,15 @@
   --critical-soft: rgba(204, 61, 84, 0.11);
 
   /* — chart series (validated: dataviz skill) — */
-  --baseline-line: #5b6579; /* recessive reference series */
+  --baseline-line: #5b6579; /* recessive reference series (dashed) */
   --candidate-line: #3a45d6;/* highlighted series = accent */
+  /* categorical candidate palette (fixed order; distinct from status hues).
+     Identity is never color-alone — every line carries a direct end label. */
+  --series-1: #3a45d6; /* indigo */
+  --series-2: #b5359c; /* magenta */
+  --series-3: #0e8f8f; /* teal */
+  --series-4: #8046cf; /* violet */
+  --series-5: #c2570f; /* burnt orange */
 
   /* — type — */
   --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui,
