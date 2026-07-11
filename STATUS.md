@@ -36,8 +36,8 @@ When the last box ticks, Frank tells the architect session "run checkpoint 1". D
 - [x] Bench chat → COMMENCE kicks a real engagement (B) — WS chat (terra) + POST /commence both verified; e.g. eng_full_1783800205
 - [x] Watercooler produces a real Repo Dossier for the fork (B) — 2 luna scouts fetch real GitHub raw files → 4 card artifacts → terra dossier (kind=dossier) naming trimMessages() weakness
 - [x] Library runs real Linkup search → pitches (B) — live api.linkup.so query → luna grader relevance scores → 3 terra pitch artifacts (MemGPT/CoALA/Reflexion, real arXiv ids)
-- [ ] One experiment executes in cloud sandbox with live metric events (B+C) — lab calls sandbox /run for top pitch; dynamic role `memory-compaction-specialist` spawned mid-run; runner emits status/metric itself. First run hit container cold-start (handled: pending+retry); added transient retry, re-verifying warm run
-- [ ] One real PR opened on watson-vending-bench by the machinery (C)
+- [x] One experiment executes in cloud sandbox with live metric events (B+C) — **/run GREEN**: clean POST /run (ref=main, npm run run:demo) → HTTP 200, real metric (totalAssets $954.42, daysCompleted 29, 29-pt series), status+metric events emitted to Convex. Cold-start FIXED (warm-up + transient retry); max_instances 1→5; /ping resilient (dedicated health sandbox). Deploy v153be655. DO NOT redeploy mid-run (resets the DO).
+- [x] One real PR opened on watson-vending-bench by the machinery (C) — POST /pr VERIFIED: opened real draft PR #1 with templated body (pitch, baseline-vs-candidate table, arXiv cites), then closed + deleted branch. Exact recorded-run payload in workers/sandbox-runner/README.md. Winning candidate branch `feat/memory-compaction` left un-merged/un-PR'd for the Lab to open live.
 - [ ] All five views show the run live (D1/D2/D3 + A)
 
 ## Stretch: Podcast
@@ -45,4 +45,5 @@ When the last box ticks, Frank tells the architect session "run checkpoint 1". D
 
 ## Blockers (any tab, any time)
 Write it here, commit, tell Frank to ping the architect:
-- **[B→C] sandbox-runner unhealthy** (watson-sandbox-runner…/): /ping times out (000 after 30s); /run returns `SandboxError: Container is starting. Please retry in a moment.` persistently (across brain's 4x retry). Blocks the last Checkpoint-2 line I own ("experiment executes in cloud sandbox with live metric events"). Brain handles it gracefully (experiment→pending, Hermes recommends retry) so the pipe stays green — re-run COMMENCE once the container serves /run and it captures the real metric with no brain changes.
+- ~~**[B→C] sandbox-runner unhealthy**~~ RESOLVED (C): was a cold-start race on a single container instance. Fixed with warm-up + transient-error retry on every sandbox op, a dedicated health sandbox for /ping, and max_instances 1→5. /health, /ping, /run, /pr all green. Only rule: do NOT redeploy the worker during the recorded run (resets the Sandbox DO mid-flight).
+- **[C note] Pitch A is an assets win, not a days win.** Locked profile: 30d / 8k context / gpt-5.6-luna (effort none) / seed 42. Baseline (lossy trim) $850.99 → candidate (compaction) $963.47, +13.2%, n=3 (baselines.json). Both survive 30 days — no days-survived separation (luna too robust; long/tight-context runs too slow to iterate a bankruptcy gap in time; no weaker model available). Honest N→M is on Total Assets.
