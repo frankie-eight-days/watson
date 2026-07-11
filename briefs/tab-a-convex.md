@@ -24,3 +24,6 @@ Own everything in `watson/convex/` — the live state store and event pipe that 
 
 ## Rubric you own
 Observability L4/L5 data (token/cost per step, run diff, search), memory L5 (three layers), replay (the demo itself).
+
+## Cloud story (read this if you're wondering about Cloudflare)
+You do NOT deploy to Cloudflare — that policy in the other tabs' briefs is not yours. Your cloud is Convex, and it already exists: deployment `dev:friendly-sheep-865` (team frank-walsh, project watson), URL https://friendly-sheep-865.convex.cloud, schema already pushed. Config is in `.env.local` at the watson repo root. Just run `npx convex dev` from the repo root and every save in `convex/` deploys live. Your HTTP actions are served at https://friendly-sheep-865.convex.site — that (plus the .cloud URL for the client API) is the endpoint the other tabs will hit.
