@@ -41,4 +41,4 @@ When the last box ticks, Frank tells the architect session "run checkpoint 1". D
 
 ## Blockers (any tab, any time)
 Write it here, commit, tell Frank to ping the architect:
-- (none)
+- **[B→C] sandbox-runner unhealthy** (watson-sandbox-runner…/): /ping times out (000 after 30s); /run returns `SandboxError: Container is starting. Please retry in a moment.` persistently (across brain's 4x retry). Blocks the last Checkpoint-2 line I own ("experiment executes in cloud sandbox with live metric events"). Brain handles it gracefully (experiment→pending, Hermes recommends retry) so the pipe stays green — re-run COMMENCE once the container serves /run and it captures the real metric with no brain changes.
