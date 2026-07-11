@@ -136,17 +136,18 @@ export function BenchView() {
 
   return (
     <div className="flex h-full flex-col gap-3 p-4">
-      {/* status + kickoff strip */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface px-3 py-2">
-          <span className="relative flex items-center" style={{ color: conn.color }}>
-            {status === 'open' && (
-              <span className="absolute h-2 w-2 animate-ping rounded-full opacity-60" style={{ background: conn.color }} />
-            )}
-            <span className="text-[0.75rem] leading-none">{conn.dot}</span>
-          </span>
-          <span className="font-mono text-[0.75rem] font-semibold tracking-wide" style={{ color: conn.color }}>
-            {conn.label}
+      {/* kickoff card */}
+      <div className="rounded-xl border border-hairline bg-surface p-4 shadow-card">
+        {/* connection + engagement */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5" style={{ color: conn.color }}>
+            <span className="relative flex items-center">
+              {status === 'open' && (
+                <span className="absolute h-2 w-2 animate-ping rounded-full opacity-60" style={{ background: conn.color }} />
+              )}
+              <span className="text-[0.75rem] leading-none">{conn.dot}</span>
+            </span>
+            <span className="font-mono text-[0.75rem] font-semibold tracking-wide">{conn.label}</span>
           </span>
           <span className="font-mono text-[0.6875rem] text-ink-3">· {engagementId}</span>
           {isDemo && (
@@ -154,25 +155,38 @@ export function BenchView() {
               Demo
             </span>
           )}
+          {stateReady && (
+            <span className="ml-auto flex items-center gap-1 rounded-pill bg-[color:var(--good-soft)] px-2 py-0.5 text-[0.625rem] font-semibold text-[color:var(--good)]">
+              ✓ Scoped &amp; ready
+            </span>
+          )}
         </div>
 
-        <div className="ml-auto flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
-          <div className="flex min-w-0 items-center rounded-lg border border-hairline bg-surface px-2.5 font-mono text-[0.75rem] text-ink-3">
-            <span className="shrink-0 text-ink-3">repo:</span>
-            <input
-              value={repoUrl}
-              onChange={(e) => setRepoUrl(e.target.value)}
-              disabled={running}
-              className="min-w-0 flex-1 bg-transparent px-1.5 py-2 text-ink outline-none disabled:opacity-50"
-            />
-          </div>
+        {/* target repository */}
+        <label htmlFor="repo-url" className="eyebrow mb-1.5 block">
+          Target repository
+        </label>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+          <input
+            id="repo-url"
+            value={repoUrl}
+            onChange={(e) => {
+              setRepoEdited(true);
+              setRepoUrl(e.target.value);
+            }}
+            disabled={running}
+            spellCheck={false}
+            autoComplete="off"
+            placeholder="https://github.com/owner/repo"
+            className="focus-ring min-w-0 flex-1 rounded-lg border border-hairline bg-surface-2 px-3.5 py-2.5 font-mono text-[0.875rem] tabular-nums tracking-tight text-ink placeholder:text-ink-3 disabled:opacity-50"
+          />
           <button
             onClick={doCommence}
-            disabled={running || !repoUrl.trim()}
-            className={`focus-ring flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-2 text-[0.8125rem] font-semibold tracking-wide transition-opacity ${
+            disabled={!canCommence}
+            className={`focus-ring flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold tracking-wide transition-opacity ${
               running
                 ? 'cursor-not-allowed bg-surface-2 text-ink-3'
-                : 'bg-accent text-white hover:opacity-90 disabled:opacity-40'
+                : 'bg-accent text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40'
             }`}
           >
             {running ? (
@@ -185,6 +199,18 @@ export function BenchView() {
             )}
           </button>
         </div>
+
+        {/* hint */}
+        <p className="mt-2 text-[0.6875rem] text-ink-3">
+          {running
+            ? 'Engagement under way — Hermes has taken the brief.'
+            : stateRepoUrl && !repoEdited
+              ? `Scoped from the conversation · ${stateRepoUrl}`
+              : !repoValid && stateReady
+                ? 'Hermes scoped the repo in conversation — ready to commence.'
+                : 'Paste a GitHub repo, or let Hermes scope it in the chat below.'}
+          {!running && (status === 'open' ? ' Sends over the live socket.' : ' Socket down — falls back to the HTTP kickoff.')}
+        </p>
       </div>
 
       {/* terminal */}
