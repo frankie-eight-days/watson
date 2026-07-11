@@ -1,0 +1,9 @@
+{
+  "name": "watson",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "workers/*",
+    "packages/*"
+  ]
+}
