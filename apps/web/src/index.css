@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   WATSON DESIGN TOKENS — defined ONCE, consumed everywhere (Tailwind + CSS).
+   Aesthetic: light "Apple research-lab" — airy, precise, calm. One accent.
+   The app deliberately commits to a single light look (no dark theme).
+   ========================================================================== */
+:root {
+  /* — surfaces & ink — */
+  --bg: #f7f8fa;            /* app canvas, cool near-white */
+  --surface: #ffffff;       /* cards, panels */
+  --surface-2: #f3f4f7;     /* recessed panels */
+  --surface-3: #eceef2;     /* deep recess / console gutter */
+  --hairline: rgba(17, 20, 34, 0.07);        /* 1px dividers, very light */
+  --hairline-strong: rgba(17, 20, 34, 0.12);
+  --ink: #16181f;           /* primary text */
+  --ink-2: #565c6b;         /* secondary text */
+  --ink-3: #949aa8;         /* muted / captions */
+
+  /* — the ONE accent (research-instrument indigo) — */
+  --accent: #3a45d6;
+  --accent-ink: #2b33b0;    /* accent used as text (darker for contrast) */
+  --accent-soft: rgba(58, 69, 214, 0.09);
+  --accent-ring: rgba(58, 69, 214, 0.22);
+
+  /* — status (reserved; never reused as chart series) — */
+  --good: #17916a;
+  --good-soft: rgba(23, 145, 106, 0.11);
+  --warning: #b7791f;
+  --warning-soft: rgba(183, 121, 31, 0.12);
+  --critical: #cc3d54;
+  --critical-soft: rgba(204, 61, 84, 0.11);
+
+  /* — chart series (validated: dataviz skill) — */
+  --baseline-line: #5b6579; /* recessive reference series */
+  --candidate-line: #3a45d6;/* highlighted series = accent */
+
+  /* — type — */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'JetBrains Mono', 'Menlo', 'Consolas', monospace;
+
+  /* — geometry — */
+  --radius-card: 14px;
+  --radius-pill: 999px;
+  --shadow-card: 0 1px 2px rgba(17, 20, 34, 0.04), 0 1px 0 rgba(17, 20, 34, 0.02);
+  --shadow-lift: 0 8px 24px -12px rgba(17, 20, 34, 0.16);
+  --shadow-drawer: 0 -14px 40px -24px rgba(17, 20, 34, 0.22);
+}
+
+* {
+  border-color: var(--hairline);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'cv01', 'ss01';
+}
+
+/* Every number in the product uses tabular figures. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Micro eyebrow labels — the app's structural vernacular. */
+.eyebrow {
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 590;
+}
+
+/* Recessed hairline card used across views. */
+.hairline-card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-ring);
+  border-radius: 8px;
+}
+
+/* Calm, precise scrollbars. */
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+.scroll-slim::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  background: var(--hairline-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.scroll-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
