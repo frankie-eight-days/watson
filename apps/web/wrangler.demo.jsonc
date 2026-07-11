@@ -11,6 +11,10 @@
   "name": "watson-demo",
   "compatibility_date": "2025-07-01",
   "account_id": "b9adc0458ab5f7d63447a4f0a4b81d00",
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "demo.lab-bench.app", "custom_domain": true }
+  ],
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application"
