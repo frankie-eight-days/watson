@@ -9,16 +9,10 @@
  * block (the diff/snippet the agent actually wrote).
  */
 import type { WatsonEvent } from '@watson/shared';
-import {
-  artifactsOfKind,
-  foldMetricSeries,
-  latestArtifactByRef,
-  type ArtifactEvent,
-  type MetricSeries,
-} from './fold';
+import { artifactsOfKind, foldMetricSeries, type ArtifactEvent, type MetricSeries } from './fold';
 import { isBaselineLabel } from './vizColors';
 
-export type ExperimentStatus = 'implementing' | 'testing' | 'validated' | 'rejected';
+export type ExperimentStatus = 'authored' | 'implementing' | 'testing' | 'validated' | 'rejected';
 
 export interface CodeBlock {
   lang?: string;
@@ -37,6 +31,8 @@ export interface ExperimentView {
   statusReason?: string;
   hypothesis?: string;
   file?: string;
+  branch?: string;
+  paperUrl?: string;
   description?: string;
   code: CodeBlock[];
   /** The candidate metric line for this experiment, if linked. */
@@ -80,43 +76,55 @@ function extractCodeBlocks(body: string): { code: CodeBlock[]; rest: string } {
   return { code, rest };
 }
 
+/**
+ * Read a labeled field in the brain's markdown format. Handles the bold-dot form
+ * `**Label.** value` and `**Label:** value`, plus a plain `Label: value` legacy
+ * line. Returns the rest of that line, markdown-stripped.
+ */
+function field(body: string, label: string): string | undefined {
+  const re = new RegExp(
+    `\\*\\*\\s*${label}\\s*[.:]?\\s*\\*\\*\\s*([^\\n]+)|(?:^|\\n)\\s*${label}\\s*[.:]\\s*([^\\n]+)`,
+    'i',
+  );
+  const m = body.match(re);
+  const v = m?.[1] ?? m?.[2];
+  return v ? stripMd(v) : undefined;
+}
+
+function parseMoney(s: string | undefined): number | undefined {
+  if (!s) return undefined;
+  const m = s.replace(/,/g, '').match(/-?\$?\s*(-?\d+(?:\.\d+)?)/);
+  return m ? Number(m[1]) : undefined;
+}
+
+/** delta from a candidate field like "$807 (WIN +39%)" or "(no improvement)". */
+function parseDelta(s: string | undefined): number | undefined {
+  if (!s) return undefined;
+  const m = s.match(/([+-]?\d+(?:\.\d+)?)\s*%/);
+  return m ? Number(m[1]) : undefined;
+}
+
+/**
+ * Status from the LATEST emission. Vocabulary: proposed | authored | testing |
+ * running | validated | rejected (+ optional suffix after an em-dash / parens).
+ */
 function parseStatus(title: string, body: string): { status: ExperimentStatus; reason?: string } {
-  const hay = `${title}\n${body}`;
-  const explicit = hay.match(/status[:*\s]*\**\s*(implementing|testing|validated?|rejected?|proposed|running|building|failed)/i);
-  const word = explicit?.[1]?.toLowerCase();
-  const rejected = /reject|failed to (build|compile)|build failed|compile error/i.test(hay) || word === 'failed';
+  const raw = (field(body, 'status') ?? '').trim();
+  const hay = `${title}\n${raw}\n${body}`;
+  const rejected = /^reject/i.test(raw) || /reject|failed to (build|validate|compile)|build failed|compile error/i.test(hay);
   if (rejected) {
     const m =
-      hay.match(/reject\w*\s*[—:-]\s*([^\n.]+)/i) ||
-      hay.match(/(failed to build|failed to compile|build failed|compile error)/i);
+      raw.match(/reject\w*\s*[—:-]\s*(.+)/i) ||
+      raw.match(/\((.+?)\)/) ||
+      hay.match(/(failed to (?:build|validate|compile)|build failed|compile error)/i);
     return { status: 'rejected', reason: m?.[1] ? stripMd(m[1]) : undefined };
   }
-  if (word?.startsWith('validat') || /\bvalidated\b/i.test(hay)) return { status: 'validated' };
-  if (word === 'testing' || word === 'running' || /\b(testing|running the|benchmark(ing)?)\b/i.test(hay))
+  if (/^validat/i.test(raw) || /\bvalidated\b/i.test(hay)) return { status: 'validated' };
+  if (/^authored/i.test(raw)) return { status: 'authored' };
+  if (/^(testing|running)/i.test(raw) || /\b(testing|running the arms|benchmark(ing)?)\b/i.test(hay))
     return { status: 'testing' };
+  if (/^(proposed|implementing|building)/i.test(raw)) return { status: 'implementing' };
   return { status: 'implementing' };
-}
-
-function firstMatch(body: string, re: RegExp): string | undefined {
-  const m = body.match(re);
-  return m?.[1] ? stripMd(m[1]) : undefined;
-}
-
-function parseBody(title: string, body: string) {
-  const { code, rest } = extractCodeBlocks(body);
-  const hypothesis = firstMatch(rest, /hypothesis[:*\s]*\**\s*([^\n]+)/i);
-  const file =
-    firstMatch(rest, /(?:target file|file|path|target)[:*\s]*\**\s*`?([^\n`]+?)`?\s*$/im) ??
-    firstMatch(rest, /(?:target file|file|path|target)[:*\s]*\**\s*`?([^\n`,]+)`?/i);
-  const { status, reason } = parseStatus(title, body);
-  // description = remaining prose minus the field lines we surfaced structurally.
-  const description = rest
-    .split('\n')
-    .filter((l) => l.trim() && !/^(\s*[*>-]?\s*)(hypothesis|status|file|path|target|target file|command)\b/i.test(l))
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return { code, hypothesis, file, status, reason, description: description || undefined };
 }
 
 // ── metric linkage ────────────────────────────────────────────────────────
@@ -144,7 +152,21 @@ function shortLabel(refId: string, index: number): string {
 }
 
 export function foldLab(events: WatsonEvent[]): LabModel {
-  const arts = latestArtifactByRef(artifactsOfKind(events, 'experiment')).sort((a, b) => a.seq - b.seq);
+  // Group experiment artifacts by refId (an experiment is emitted MULTIPLE times
+  // as it progresses: proposed/authored carries hypothesis + code; the final
+  // emission carries the status + result). Merge across emissions so nothing is
+  // lost — the frozen 'latest wins' collapse would drop the code.
+  const groups = new Map<string, ArtifactEvent[]>();
+  for (const a of artifactsOfKind(events, 'experiment')) {
+    const ref = a.payload.refId ?? `exp_${a.seq}`;
+    const arr = groups.get(ref);
+    if (arr) arr.push(a);
+    else groups.set(ref, [a]);
+  }
+  const ordered = [...groups.entries()]
+    .map(([ref, arr]) => ({ ref, arr: [...arr].sort((x, y) => x.seq - y.seq) }))
+    .sort((a, b) => a.arr[0].seq - b.arr[0].seq);
+
   const metricName = pickMetricName(events);
   const series = metricName ? foldMetricSeries(events, metricName) : [];
   const baseline = series.find((s) => isBaselineLabel(s.label));
@@ -152,40 +174,72 @@ export function foldLab(events: WatsonEvent[]): LabModel {
   const baselineValue = baseline?.latest;
   const unit = baseline?.unit ?? candidates[0]?.unit;
 
-  const linkCandidate = (art: ArtifactEvent, idx: number): MetricSeries | undefined => {
-    const ref = art.payload.refId ?? '';
-    return (
-      candidates.find((c) => c.label === ref) ??
-      (ref ? candidates.find((c) => c.label.includes(ref) || ref.includes(c.label)) : undefined) ??
-      // fall back to positional linkage when labels don't encode the refId
-      (candidates.length === arts.length ? candidates[idx] : undefined)
-    );
-  };
+  const linkCandidate = (title: string, ref: string, idx: number): MetricSeries | undefined =>
+    // Preferred: seriesLabel === pitch title (== card title) in the new format.
+    candidates.find((c) => c.label === title) ??
+    candidates.find((c) => c.label === ref) ??
+    (title ? candidates.find((c) => c.label.includes(title) || title.includes(c.label)) : undefined) ??
+    // positional / single-candidate fallback (generic 'candidate' seriesLabel)
+    (candidates.length === ordered.length ? candidates[idx] : undefined) ??
+    (candidates.length === 1 && ordered.length === 1 ? candidates[0] : undefined);
 
-  const experiments: ExperimentView[] = arts.map((art, idx) => {
-    const p = art.payload;
-    const parsed = parseBody(p.title, p.body ?? '');
-    const candidate = linkCandidate(art, idx);
-    const candidateValue = candidate?.latest;
+  const experiments: ExperimentView[] = ordered.map((g, idx) => {
+    const emissions = g.arr;
+    const latest = emissions[emissions.length - 1];
+    const title = emissions.find((e) => e.payload.title)?.payload.title ?? latest.payload.title;
+    const mergedBody = emissions.map((e) => e.payload.body ?? '').join('\n\n');
+
+    const { status, reason } = parseStatus(latest.payload.title, latest.payload.body ?? '');
+    const { code } = extractCodeBlocks(mergedBody);
+    const hypothesis = field(mergedBody, 'hypothesis');
+    const fileRaw = field(mergedBody, 'target') ?? field(mergedBody, 'file') ?? field(mergedBody, 'path');
+    const branch = field(mergedBody, 'branch');
+    const paperUrl = emissions.map((e) => e.payload.url).find(Boolean) ?? undefined;
+
+    const candidate = linkCandidate(title, g.ref, idx);
+    // Metric-derived values win; else fall back to the values stated in the body.
+    const candField = field(mergedBody, 'candidate');
+    const candidateValue = candidate?.latest ?? parseMoney(candField);
+    const bValue = baselineValue ?? parseMoney(field(mergedBody, 'baseline'));
     const deltaPct =
-      candidateValue != null && baselineValue != null && baselineValue !== 0
-        ? ((candidateValue - baselineValue) / Math.abs(baselineValue)) * 100
+      candidateValue != null && bValue != null && bValue !== 0
+        ? ((candidateValue - bValue) / Math.abs(bValue)) * 100
+        : parseDelta(candField);
+
+    // description: prose left after removing code + the labeled field lines.
+    const description =
+      code.length === 0
+        ? extractCodeBlocks(mergedBody)
+            .rest.split('\n')
+            .filter(
+              (l) =>
+                l.trim() &&
+                !/^\s*(?:\*\*)?\s*(hypothesis|status|target|file|path|baseline|candidate|branch|paper|arms|command)\b/i.test(
+                  l,
+                ),
+            )
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim() || undefined
         : undefined;
+
     return {
-      refId: p.refId ?? `exp_${art.seq}`,
-      title: p.title,
-      tag: shortLabel(p.refId ?? `exp_${art.seq}`, idx),
-      agentId: art.agentId,
-      seq: art.seq,
-      status: parsed.status,
-      statusReason: parsed.reason,
-      hypothesis: parsed.hypothesis,
-      file: parsed.file,
-      description: parsed.description,
-      code: parsed.code,
+      refId: g.ref,
+      title,
+      tag: shortLabel(g.ref, idx),
+      agentId: latest.agentId,
+      seq: latest.seq,
+      status,
+      statusReason: reason,
+      hypothesis,
+      file: fileRaw ? fileRaw.replace(/`/g, '').trim() : undefined,
+      branch,
+      paperUrl,
+      description,
+      code,
       candidate,
       candidateValue,
-      baselineValue,
+      baselineValue: bValue,
       deltaPct,
     };
   });
@@ -219,6 +273,8 @@ export function foldLab(events: WatsonEvent[]): LabModel {
     xIsDay,
     validated: experiments.filter((e) => e.status === 'validated').length,
     rejected: experiments.filter((e) => e.status === 'rejected').length,
-    running: experiments.filter((e) => e.status === 'implementing' || e.status === 'testing').length,
+    running: experiments.filter(
+      (e) => e.status === 'authored' || e.status === 'implementing' || e.status === 'testing',
+    ).length,
   };
 }

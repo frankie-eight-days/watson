@@ -22,6 +22,7 @@ const STATUS_META: Record<
   ExperimentStatus,
   { label: string; color: string; soft: string; live: boolean }
 > = {
+  authored: { label: 'Authored', color: 'var(--accent-ink)', soft: 'var(--accent-soft)', live: true },
   implementing: { label: 'Implementing', color: 'var(--warning)', soft: 'var(--warning-soft)', live: true },
   testing: { label: 'Testing', color: 'var(--accent-ink)', soft: 'var(--accent-soft)', live: true },
   validated: { label: 'Validated', color: 'var(--good)', soft: 'var(--good-soft)', live: false },
@@ -74,9 +75,12 @@ function ExperimentCard({ e, unit }: { e: ExperimentView; unit?: string }) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[0.875rem] font-semibold leading-tight text-ink">{e.title}</div>
-          {e.file && (
-            <div className="mt-0.5 truncate font-mono text-[0.6875rem] text-ink-3">{e.file}</div>
-          )}
+          <div className="mt-0.5 flex items-center gap-2">
+            {e.file && <span className="truncate font-mono text-[0.6875rem] text-ink-3">{e.file}</span>}
+            {e.branch && (
+              <span className="shrink-0 rounded bg-surface-2 px-1 font-mono text-[0.625rem] text-ink-3">⎇ {e.branch}</span>
+            )}
+          </div>
         </div>
         <StatusBadge status={e.status} reason={e.statusReason} />
       </div>
@@ -134,6 +138,17 @@ function ExperimentCard({ e, unit }: { e: ExperimentView; unit?: string }) {
         </div>
       ) : (
         e.description && <p className="text-[0.8125rem] leading-relaxed text-ink-2">{e.description}</p>
+      )}
+
+      {e.paperUrl && (
+        <a
+          href={e.paperUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="focus-ring inline-flex w-fit items-center gap-1 text-[0.6875rem] font-medium text-accent-ink hover:underline"
+        >
+          Source paper ↗
+        </a>
       )}
     </div>
   );

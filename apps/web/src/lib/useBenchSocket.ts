@@ -14,7 +14,7 @@
  * trigger (`POST /engagements/:id/commence`).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BRAIN_WS_BASE, BRAIN_HTTP_BASE } from './config';
+import { BRAIN_WS_BASE, BRAIN_HTTP_BASE, DEMO_LOCKED } from './config';
 
 export type BenchStatus = 'connecting' | 'open' | 'closed' | 'error';
 
@@ -50,6 +50,9 @@ export function useBenchSocket(engagementId: string) {
   }, []);
 
   useEffect(() => {
+    // Locked demo mirror = PURE REPLAY. Never open a socket to the brain, so the
+    // mirror makes zero live network calls; the Bench renders from replay only.
+    if (DEMO_LOCKED) return;
     closedByUs.current = false;
     retryRef.current = 0;
     setAgentState(null);
@@ -108,6 +111,7 @@ export function useBenchSocket(engagementId: string) {
 
   const sendUser = useCallback(
     (text: string) => {
+      if (DEMO_LOCKED) return;
       const trimmed = text.trim();
       if (!trimmed) return;
       push({ role: 'user', text: trimmed });
@@ -123,6 +127,7 @@ export function useBenchSocket(engagementId: string) {
 
   const commence = useCallback(
     async (repoUrl: string) => {
+      if (DEMO_LOCKED) return;
       const url = repoUrl.trim();
       // Empty is allowed only when the brain already scoped the repo into state;
       // it then commences off state.repoUrl. Otherwise the caller gates on canCommence.

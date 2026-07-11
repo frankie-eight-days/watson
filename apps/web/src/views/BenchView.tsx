@@ -15,6 +15,7 @@ import { useEngagement, useSelection } from '@/state/hooks';
 import { useAppMode } from '@/state/switcher';
 import { useBenchSocket, type BenchStatus } from '@/lib/useBenchSocket';
 import { inferPhase } from '@/lib/fold';
+import { DEMO_LOCKED } from '@/lib/config';
 import { formatClock } from '@/lib/format';
 
 type LineKind =
@@ -117,12 +118,16 @@ export function BenchView() {
 
   const phase = inferPhase(events);
   const running = commenceSent || agents.length > 1 || phase !== 'Bench';
-  const conn = CONN[status];
+  // In the locked demo mirror there is no live socket — present a static
+  // "recorded run" state and make the kickoff/chat non-interactive.
+  const conn = DEMO_LOCKED
+    ? { dot: '●', label: 'RECORDED RUN', color: 'var(--good)' }
+    : CONN[status];
 
   // Prefer the field; fall back to the conversationally-scoped repo when empty.
   const effectiveRepo = (repoUrl.trim() || stateRepoUrl).trim();
   const repoValid = looksLikeGithubUrl(effectiveRepo);
-  const canCommence = !running && (repoValid || stateReady);
+  const canCommence = !DEMO_LOCKED && !running && (repoValid || stateReady);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -174,17 +179,17 @@ export function BenchView() {
               setRepoEdited(true);
               setRepoUrl(e.target.value);
             }}
-            disabled={running}
+            disabled={running || DEMO_LOCKED}
             spellCheck={false}
             autoComplete="off"
             placeholder="https://github.com/owner/repo"
-            className="focus-ring h-10 min-w-0 flex-1 rounded-lg border border-hairline bg-surface-2 px-3 font-mono text-base tabular-nums tracking-tight text-ink placeholder:text-ink-3 disabled:opacity-50"
+            className="focus-ring h-9 min-w-0 flex-1 rounded-lg border border-hairline bg-surface-2 px-3 font-mono text-[0.9375rem] leading-none tabular-nums tracking-tight text-ink placeholder:text-ink-3 disabled:opacity-50"
           />
           <button
             onClick={doCommence}
             disabled={!canCommence}
-            className={`focus-ring flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-semibold tracking-wide transition-opacity ${
-              running
+            className={`focus-ring flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-4 text-[0.8125rem] font-semibold tracking-wide transition-opacity ${
+              running || DEMO_LOCKED
                 ? 'cursor-not-allowed bg-surface-2 text-ink-3'
                 : 'bg-accent text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40'
             }`}
@@ -201,15 +206,19 @@ export function BenchView() {
         </div>
 
         {/* hint */}
-        <p className="mt-2 text-[0.6875rem] text-ink-3">
-          {running
-            ? 'Engagement under way — Hermes has taken the brief.'
-            : stateRepoUrl && !repoEdited
-              ? `Scoped from the conversation · ${stateRepoUrl}`
-              : !repoValid && stateReady
-                ? 'Hermes scoped the repo in conversation — ready to commence.'
-                : 'Paste a GitHub repo, or let Hermes scope it in the chat below.'}
-          {!running && (status === 'open' ? ' Sends over the live socket.' : ' Socket down — falls back to the HTTP kickoff.')}
+        <p className="mt-1.5 text-[0.6875rem] text-ink-3">
+          {DEMO_LOCKED
+            ? 'Recorded run — replay only.'
+            : running
+              ? 'Engagement under way — Hermes has taken the brief.'
+              : stateRepoUrl && !repoEdited
+                ? `Scoped from the conversation · ${stateRepoUrl}`
+                : !repoValid && stateReady
+                  ? 'Hermes scoped the repo in conversation — ready to commence.'
+                  : 'Paste a GitHub repo, or let Hermes scope it in the chat below.'}
+          {!DEMO_LOCKED &&
+            !running &&
+            (status === 'open' ? ' Sends over the live socket.' : ' Socket down — falls back to the HTTP kickoff.')}
         </p>
       </div>
 
@@ -277,12 +286,15 @@ export function BenchView() {
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder={status === 'open' ? 'message Hermes…' : 'connecting to Hermes…'}
-            className="min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-ink-3"
+            disabled={DEMO_LOCKED}
+            placeholder={
+              DEMO_LOCKED ? 'recorded run — read-only' : status === 'open' ? 'message Hermes…' : 'connecting to Hermes…'
+            }
+            className="min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-ink-3 disabled:opacity-60"
           />
           <button
             type="submit"
-            disabled={!draft.trim()}
+            disabled={!draft.trim() || DEMO_LOCKED}
             className="focus-ring shrink-0 rounded-md bg-surface-2 px-2.5 py-1 text-[0.6875rem] font-medium text-ink-2 hover:text-ink disabled:opacity-40"
           >
             send ↵
