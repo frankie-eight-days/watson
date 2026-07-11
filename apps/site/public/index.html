@@ -47,41 +47,85 @@
       <span class="blob blob-c"></span>
     </div>
 
-    <!-- layer 3: floating lab motifs -->
+    <!-- layer 3: floating lab motifs (organic drift + scroll parallax) -->
     <div class="hero-motifs" aria-hidden="true">
       <!-- flask -->
-      <svg class="motif motif-flask" viewBox="0 0 48 48" fill="none">
-        <path d="M19 5 h10 M21 5 v12 L11 37 a4 4 0 0 0 3.5 6 h19 a4 4 0 0 0 3.5-6 L27 17 V5"
-              stroke="#3a45d6" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
-        <path d="M16 30 h16" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
-        <circle cx="21" cy="35" r="1.5" fill="#3a45d6" opacity="0.55"/>
-        <circle cx="27" cy="38" r="1.1" fill="#3a45d6" opacity="0.4"/>
-      </svg>
+      <span class="motif-wrap" data-rate="0.05" style="top:16%; right:9%;">
+        <svg class="motif motif-flask" viewBox="0 0 48 48" fill="none">
+          <path d="M19 5 h10 M21 5 v12 L11 37 a4 4 0 0 0 3.5 6 h19 a4 4 0 0 0 3.5-6 L27 17 V5"
+                stroke="#3a45d6" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+          <path d="M16 30 h16" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
+          <circle cx="21" cy="35" r="1.5" fill="#3a45d6" opacity="0.55"/>
+          <circle cx="27" cy="38" r="1.1" fill="#3a45d6" opacity="0.4"/>
+        </svg>
+      </span>
       <!-- molecule / node-graph -->
-      <svg class="motif motif-mol" viewBox="0 0 60 60" fill="none">
-        <line x1="12" y1="14" x2="30" y2="30" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
-        <line x1="30" y1="30" x2="50" y2="18" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
-        <line x1="30" y1="30" x2="24" y2="50" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
-        <line x1="30" y1="30" x2="48" y2="46" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
-        <circle cx="12" cy="14" r="3.4" fill="#fff" stroke="#3a45d6" stroke-width="1.6"/>
-        <circle cx="50" cy="18" r="3.4" fill="#fff" stroke="#3a45d6" stroke-width="1.6"/>
-        <circle cx="24" cy="50" r="3.4" fill="#fff" stroke="#3a45d6" stroke-width="1.6"/>
-        <circle cx="48" cy="46" r="3.4" fill="#fff" stroke="#3a45d6" stroke-width="1.6"/>
-        <circle cx="30" cy="30" r="4.4" fill="#3a45d6"/>
-      </svg>
+      <span class="motif-wrap" data-rate="0.11" style="top:54%; right:15%;">
+        <svg class="motif motif-mol" viewBox="0 0 60 60" fill="none">
+          <line x1="12" y1="14" x2="30" y2="30" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
+          <line x1="30" y1="30" x2="50" y2="18" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
+          <line x1="30" y1="30" x2="24" y2="50" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
+          <line x1="30" y1="30" x2="48" y2="46" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
+          <circle cx="12" cy="14" r="3.4" fill="#fff" stroke="#3a45d6" stroke-width="1.6"/>
+          <circle cx="50" cy="18" r="3.4" fill="#fff" stroke="#3a45d6" stroke-width="1.6"/>
+          <circle cx="24" cy="50" r="3.4" fill="#fff" stroke="#3a45d6" stroke-width="1.6"/>
+          <circle cx="48" cy="46" r="3.4" fill="#fff" stroke="#3a45d6" stroke-width="1.6"/>
+          <circle cx="30" cy="30" r="4.4" fill="#3a45d6"/>
+        </svg>
+      </span>
       <!-- test tube -->
-      <svg class="motif motif-tube" viewBox="0 0 32 48" fill="none">
-        <path d="M11 4 h10 M13 4 v34 a3 3 0 0 0 6 0 V4" stroke="#3a45d6" stroke-width="1.6" stroke-linecap="round"/>
-        <path d="M13 26 h6 v12 a3 3 0 0 1-6 0 z" fill="#3a45d6" opacity="0.12"/>
-        <circle cx="16" cy="33" r="1.3" fill="#3a45d6" opacity="0.5"/>
-      </svg>
+      <span class="motif-wrap" data-rate="0.07" style="top:62%; left:6%;">
+        <svg class="motif motif-tube" viewBox="0 0 32 48" fill="none">
+          <path d="M11 4 h10 M13 4 v34 a3 3 0 0 0 6 0 V4" stroke="#3a45d6" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M13 26 h6 v12 a3 3 0 0 1-6 0 z" fill="#3a45d6" opacity="0.12"/>
+          <circle cx="16" cy="33" r="1.3" fill="#3a45d6" opacity="0.5"/>
+        </svg>
+      </span>
       <!-- orbit / atom -->
-      <svg class="motif motif-atom" viewBox="0 0 56 56" fill="none">
-        <ellipse cx="28" cy="28" rx="22" ry="9" stroke="#3a45d6" stroke-width="1.4" opacity="0.45"/>
-        <ellipse cx="28" cy="28" rx="22" ry="9" stroke="#3a45d6" stroke-width="1.4" opacity="0.45" transform="rotate(60 28 28)"/>
-        <ellipse cx="28" cy="28" rx="22" ry="9" stroke="#3a45d6" stroke-width="1.4" opacity="0.45" transform="rotate(120 28 28)"/>
-        <circle cx="28" cy="28" r="3.6" fill="#3a45d6"/>
-      </svg>
+      <span class="motif-wrap" data-rate="0.14" style="top:22%; right:31%;">
+        <svg class="motif motif-atom" viewBox="0 0 56 56" fill="none">
+          <ellipse cx="28" cy="28" rx="22" ry="9" stroke="#3a45d6" stroke-width="1.4" opacity="0.45"/>
+          <ellipse cx="28" cy="28" rx="22" ry="9" stroke="#3a45d6" stroke-width="1.4" opacity="0.45" transform="rotate(60 28 28)"/>
+          <ellipse cx="28" cy="28" rx="22" ry="9" stroke="#3a45d6" stroke-width="1.4" opacity="0.45" transform="rotate(120 28 28)"/>
+          <circle cx="28" cy="28" r="3.6" fill="#3a45d6"/>
+        </svg>
+      </span>
+      <!-- DNA double helix -->
+      <span class="motif-wrap" data-rate="0.08" style="top:11%; left:12%;">
+        <svg class="motif motif-dna" viewBox="0 0 44 60" fill="none"
+             stroke="#3a45d6" stroke-width="1.6" stroke-linecap="round">
+          <path d="M13 3 C 33 14, 33 20, 13 31 C 33 42, 33 48, 13 59"/>
+          <path d="M31 3 C 11 14, 11 20, 31 31 C 11 42, 11 48, 31 59"/>
+          <line x1="16" y1="9" x2="28" y2="9" stroke-width="1.3" opacity="0.55"/>
+          <line x1="17" y1="17" x2="27" y2="17" stroke-width="1.3" opacity="0.55"/>
+          <line x1="16" y1="37" x2="28" y2="37" stroke-width="1.3" opacity="0.55"/>
+          <line x1="17" y1="45" x2="27" y2="45" stroke-width="1.3" opacity="0.55"/>
+        </svg>
+      </span>
+      <!-- petri dish -->
+      <span class="motif-wrap" data-rate="0.10" style="top:40%; left:21%;">
+        <svg class="motif motif-petri" viewBox="0 0 48 48" fill="none">
+          <circle cx="24" cy="24" r="18" stroke="#3a45d6" stroke-width="1.6"/>
+          <circle cx="24" cy="24" r="13.5" stroke="#3a45d6" stroke-width="1.3" opacity="0.5"/>
+          <circle cx="19" cy="19" r="2" fill="#3a45d6" opacity="0.5"/>
+          <circle cx="29" cy="26" r="1.5" fill="#3a45d6" opacity="0.42"/>
+          <circle cx="22" cy="30" r="1.2" fill="#3a45d6" opacity="0.42"/>
+          <circle cx="30" cy="18" r="1" fill="#3a45d6" opacity="0.4"/>
+        </svg>
+      </span>
+      <!-- microscope -->
+      <span class="motif-wrap" data-rate="0.16" style="top:64%; right:37%;">
+        <svg class="motif motif-scope" viewBox="0 0 48 56" fill="none"
+             stroke="#3a45d6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="31" cy="9" r="3.6"/>
+          <path d="M30 12.5 L22 29"/>
+          <path d="M22 29 A13 13 0 0 1 14 11"/>
+          <rect x="14" y="29" width="18" height="3.4" rx="1.5" fill="#3a45d6" stroke="none" opacity="0.5"/>
+          <path d="M23 32.4 V45"/>
+          <path d="M12 49 h24"/>
+          <path d="M18 49 q5 -5 11 0" stroke-width="1.3" opacity="0.6"/>
+        </svg>
+      </span>
     </div>
 
     <div class="wrap reveal">
@@ -289,20 +333,54 @@
     </div>
   </section>
 
+  <!-- ============ 4.5 · CONTEXT ============ -->
+  <section class="context">
+    <div class="wrap reveal">
+      <p class="eyebrow">What we tested</p>
+      <h2 class="section-head">The benchmark: Vending-Bench</h2>
+      <p class="oneliner">Vending-Bench is a long-horizon agent benchmark: an LLM has to run a vending-machine business across many simulated days &mdash; managing inventory, pricing, suppliers, and cash. It's a stress test for <strong>long-horizon coherence</strong>, because over a long run agents tend to lose the plot, make contradictory decisions, and go broke. The score is Total Assets at the end of the run.</p>
+      <p class="oneliner">Staying coherent over a long horizon is the hard, unsolved part of agentic AI &mdash; exactly what breaks real autonomous agents. Labbench read the research, wrote and tested real code on a fork of the benchmark, and shipped the changes that kept the agent coherent longer. So <strong>+49%</strong> means: after Labbench injected a typed business-state briefing before each decision, the agent ended the run with 49% more Total Assets &mdash; it derailed less and stayed solvent.</p>
+
+      <div class="context-fig reveal" role="img" aria-label="Sketch: over a long simulated run the baseline agent's total assets drift and collapse, while the agent with Labbench's typed business-state briefing stays higher and more stable.">
+        <svg viewBox="0 0 680 176" xmlns="http://www.w3.org/2000/svg">
+          <!-- axes -->
+          <line x1="46" y1="20" x2="46" y2="140" stroke="rgba(17,20,34,0.12)" stroke-width="1"/>
+          <line x1="46" y1="140" x2="660" y2="140" stroke="rgba(17,20,34,0.12)" stroke-width="1"/>
+          <!-- baseline: drifts and collapses -->
+          <path d="M52 62 L112 56 L164 82 L214 70 L268 104 L326 94 L386 122 L446 112 L520 134 L636 139"
+                fill="none" stroke="#b6bcc8" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+          <!-- patched: stays high and stable -->
+          <path d="M52 58 C 150 44, 240 52, 330 44 S 520 40, 636 34"
+                fill="none" stroke="#3a45d6" stroke-width="2.4" stroke-linecap="round"/>
+          <circle cx="636" cy="34" r="3.2" fill="#3a45d6"/>
+          <circle cx="636" cy="139" r="3" fill="#b6bcc8"/>
+          <!-- labels -->
+          <text class="svg-caption" x="46" y="12" font-size="10">Total Assets</text>
+          <text class="svg-caption" x="660" y="158" font-size="10" text-anchor="end">simulated days &rarr;</text>
+          <!-- legend -->
+          <line x1="360" y1="20" x2="378" y2="20" stroke="#3a45d6" stroke-width="2.4" stroke-linecap="round"/>
+          <text class="svg-label" x="384" y="24" font-size="11">with Labbench briefing</text>
+          <line x1="360" y1="38" x2="378" y2="38" stroke="#b6bcc8" stroke-width="2.2" stroke-linecap="round"/>
+          <text class="svg-caption" x="384" y="42" font-size="11">baseline (derails)</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
   <!-- ============ 5 · PROOF ============ -->
   <section id="proof" class="proof">
     <div class="wrap">
       <div class="reveal">
         <p class="eyebrow">Proof</p>
         <h2 class="section-head">Three hypotheses tested. Two PRs shipped.</h2>
-        <p class="oneliner">The system is real end to end: Labbench read the papers, wrote the code, and ran the benchmarks in cloud sandboxes. The winning hypothesis &mdash; a typed business-state briefing from KV memory before every tool-loop request &mdash; lifted long-horizon Total Assets by <strong>+27.3%</strong>, and Labbench opened the pull request.</p>
+        <p class="oneliner">The system is real end to end: Labbench read the papers, wrote the code, and ran the benchmarks in cloud sandboxes. The winning hypothesis &mdash; a typed business-state briefing from KV memory before every tool-loop request &mdash; lifted long-horizon Total Assets by <strong>+49%</strong> on this run, and Labbench opened the pull request.</p>
       </div>
 
       <div class="proof-card reveal">
         <div class="proof-figure">
-          <p class="fig-title">Mean Total Assets &mdash; long-horizon run</p>
-          <p class="fig-sub">Vending-Bench fork &middot; higher is better</p>
-          <svg class="proof-chart" viewBox="0 0 400 288" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bar chart: baseline mean total assets $688.52 versus Labbench's typed business-state briefing $876.50, a 27.3 percent improvement. Three runs per arm; single runs range $720 to $960.">
+          <p class="fig-title">Total Assets &mdash; this engagement's run</p>
+          <p class="fig-sub">Vending-Bench fork &middot; same in-run baseline &middot; higher is better</p>
+          <svg class="proof-chart" viewBox="0 0 400 288" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bar chart against the same in-run baseline total assets of $634.50: PR #4 Reflexion reaches $732.55, a 15 percent improvement; PR #5 the typed business-state briefing reaches $949.00, a 49 percent improvement and the winner.">
             <!-- gridlines + y labels ($0 baseline) -->
             <line x1="54" y1="26"  x2="384" y2="26"  stroke="rgba(17,20,34,0.07)" stroke-width="1"/>
             <line x1="54" y1="131" x2="384" y2="131" stroke="rgba(17,20,34,0.07)" stroke-width="1"/>
@@ -311,35 +389,43 @@
             <text class="svg-caption" x="46" y="135" font-size="10" text-anchor="end">$500</text>
             <text class="svg-caption" x="46" y="240" font-size="10" text-anchor="end">$0</text>
 
-            <!-- baseline bar (recessive), value 688.52 -> top y 91.4 -->
-            <path d="M110 236 L110 95.4 Q110 91.4 114 91.4 L184 91.4 Q188 91.4 188 95.4 L188 236 Z"
+            <!-- baseline bar (recessive), value 634.50 -> top y 102.8 -->
+            <path d="M78 236 L78 106.8 Q78 102.8 82 102.8 L140 102.8 Q144 102.8 144 106.8 L144 236 Z"
                   fill="#eceef2" stroke="rgba(17,20,34,0.12)" stroke-width="1"/>
-            <text class="svg-mono" x="149" y="84" font-size="12.5" font-weight="600" text-anchor="middle" fill="#565c6b">$688.52</text>
-            <text class="svg-label" x="149" y="256" font-size="11.5" text-anchor="middle" fill="#565c6b">Baseline</text>
+            <text class="svg-mono" x="111" y="95" font-size="11.5" font-weight="600" text-anchor="middle" fill="#565c6b">$634.50</text>
+            <text class="svg-label" x="111" y="256" font-size="11" text-anchor="middle" fill="#565c6b">Baseline</text>
 
-            <!-- Labbench bar (accent), value 876.50 -> top y 51.9 -->
-            <path d="M250 236 L250 55.9 Q250 51.9 254 51.9 L324 51.9 Q328 51.9 328 55.9 L328 236 Z"
+            <!-- PR #4 bar (secondary accent), value 732.55 -> top y 82.2 -->
+            <path d="M178 236 L178 86.2 Q178 82.2 182 82.2 L240 82.2 Q244 82.2 244 86.2 L244 236 Z"
+                  fill="#9aa0e8"/>
+            <text class="svg-mono" x="211" y="74" font-size="11.5" font-weight="600" text-anchor="middle" fill="#2b33b0">$732.55</text>
+            <text x="211" y="62" font-size="11" font-weight="700" fill="#17916a" font-family="'SF Mono',ui-monospace,Menlo,monospace" text-anchor="middle">+15%</text>
+            <text class="svg-label" x="211" y="256" font-size="11" text-anchor="middle" fill="#565c6b">PR #4</text>
+
+            <!-- PR #5 bar (accent, winner), value 949.00 -> top y 36.7 -->
+            <path d="M278 236 L278 40.7 Q278 36.7 282 36.7 L340 36.7 Q344 36.7 344 40.7 L344 236 Z"
                   fill="#3a45d6"/>
-            <text class="svg-mono" x="289" y="44" font-size="12.5" font-weight="600" text-anchor="middle" fill="#2b33b0">$876.50</text>
-            <text class="svg-label" x="289" y="256" font-size="11.5" text-anchor="middle" fill="#16181f" font-weight="600">Labbench patch</text>
-
-            <!-- delta -->
-            <text x="343" y="62" font-size="12" font-weight="700" fill="#17916a" font-family="'SF Mono',ui-monospace,Menlo,monospace" text-anchor="start">+27.3%</text>
+            <text class="svg-mono" x="311" y="29" font-size="11.5" font-weight="600" text-anchor="middle" fill="#2b33b0">$949.00</text>
+            <text x="311" y="17" font-size="11.5" font-weight="700" fill="#17916a" font-family="'SF Mono',ui-monospace,Menlo,monospace" text-anchor="middle">+49%</text>
+            <text class="svg-label" x="311" y="256" font-size="11" text-anchor="middle" fill="#16181f" font-weight="600">PR #5 &middot; winner</text>
           </svg>
-          <p class="fig-caption">+27.3% mean, n=3; single runs $720&ndash;$960</p>
+          <p class="fig-caption">Result of this recorded run vs its baseline. Long-horizon benchmarks are high-variance; across repeated runs the winner averages ~+27&ndash;38% (n=3). We re-ran to confirm.</p>
         </div>
 
         <div class="proof-pr">
           <p class="pr-eyebrow">The pull requests</p>
-          <div class="pr-ref">
+          <div class="pr-ref pr-ref-win" tabindex="0" title="Before every decision, inject a compact typed summary of the business state (cash, inventory, prices, orders) pulled from the agent's key-value memory — so it never loses track of where things stand over a long run.">
             <span class="pr-repo">watson-vending-bench</span> &middot; <a class="pr-id" href="https://github.com/frankie-eight-days/watson-vending-bench/pull/5">PR #5</a> &middot; <span class="pr-tag">winner</span><br>
-            typed business-state briefing from KV memory
+            typed business-state briefing from KV memory<br>
+            <span class="pr-result"><span class="mono">$634.50</span> &rarr; <span class="mono">$949.00</span> &nbsp;<span class="delta">+49%</span></span>
+            <span class="pr-hint"><strong>The hypothesis:</strong> Before every decision, inject a compact typed summary of the business state (cash, inventory, prices, orders) pulled from the agent's key-value memory &mdash; so it never loses track of where things stand over a long run.</span>
           </div>
-          <div class="pr-ref">
+          <div class="pr-ref" tabindex="0" title="After a costly mistake, write a short lesson to memory and resurface it when a similar decision comes up again — so the agent stops repeating the same errors.">
             <span class="pr-repo">watson-vending-bench</span> &middot; <a class="pr-id" href="https://github.com/frankie-eight-days/watson-vending-bench/pull/4">PR #4</a><br>
-            Reflexion &mdash; persist failure lessons across the run
+            Reflexion &mdash; persist failure lessons across the run<br>
+            <span class="pr-result"><span class="mono">$634.50</span> &rarr; <span class="mono">$732.55</span> &nbsp;<span class="delta">+15%</span></span>
+            <span class="pr-hint"><strong>The hypothesis:</strong> After a costly mistake, write a short lesson to memory and resurface it when a similar decision comes up again &mdash; so the agent stops repeating the same errors.</span>
           </div>
-          <p style="margin:0;color:var(--ink-2);font-size:0.9375rem;">Baseline <span class="mono">$688.52</span> &rarr; winner <span class="mono">$876.50</span> &nbsp;<span class="delta">+27.3%</span></p>
         </div>
       </div>
     </div>

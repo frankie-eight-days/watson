@@ -34,6 +34,33 @@
     for (var k = 0; k < targets.length; k++) io.observe(targets[k]);
   }
 
+  // Hero motif scroll parallax — throttled via requestAnimationFrame.
+  // Each wrapper drifts at its own rate; the inner SVG keeps its CSS drift.
+  if (!reduce) {
+    var wraps = document.querySelectorAll('.hero-motifs .motif-wrap');
+    if (wraps.length && 'requestAnimationFrame' in window) {
+      var rates = [];
+      for (var w = 0; w < wraps.length; w++) {
+        rates[w] = parseFloat(wraps[w].getAttribute('data-rate')) || 0;
+      }
+      var ticking = false;
+      var updateParallax = function () {
+        var y = window.pageYOffset || 0;
+        for (var m = 0; m < wraps.length; m++) {
+          var dy = y * rates[m];
+          var rot = y * rates[m] * 0.12;
+          wraps[m].style.transform =
+            'translate3d(0,' + dy.toFixed(1) + 'px,0) rotate(' + rot.toFixed(2) + 'deg)';
+        }
+        ticking = false;
+      };
+      window.addEventListener('scroll', function () {
+        if (!ticking) { window.requestAnimationFrame(updateParallax); ticking = true; }
+      }, { passive: true });
+      updateParallax();
+    }
+  }
+
   // Smooth in-page anchor scrolling (accounts for fixed top bar).
   document.addEventListener('click', function (ev) {
     var a = ev.target.closest && ev.target.closest('a[href^="#"]');

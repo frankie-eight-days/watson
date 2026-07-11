@@ -131,19 +131,46 @@ h3 { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
 .blob-c { width: 340px; height: 340px; bottom: -160px; right: 22%;
   background: radial-gradient(circle at 50% 50%, rgba(58,69,214,0.10), transparent 70%); }
 
-/* floating lab motifs */
+/* floating lab motifs — organic drift on the SVG, scroll parallax on the wrapper */
 .hero-motifs { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
-.motif { position: absolute; display: block; will-change: transform; animation: float 9s ease-in-out infinite; }
-.motif-flask { width: 46px; height: 46px; top: 16%; right: 9%; opacity: 0.55; animation-delay: -0.5s; }
-.motif-mol   { width: 62px; height: 62px; top: 54%; right: 15%; opacity: 0.5;  animation-delay: -3s; animation-duration: 11s; }
-.motif-tube  { width: 30px; height: 46px; top: 62%; left: 6%;  opacity: 0.5;  animation-delay: -5s; animation-duration: 10s; }
-.motif-atom  { width: 56px; height: 56px; top: 22%; right: 30%; opacity: 0.4;  animation-delay: -1.8s; animation-duration: 12s; }
-@keyframes float {
-  0%,100% { transform: translateY(0) rotate(0deg); }
-  50%     { transform: translateY(-14px) rotate(4deg); }
+.motif-wrap { position: absolute; will-change: transform; }
+.motif { display: block; will-change: transform; }
+
+.motif-flask { width: 46px; height: 46px; opacity: 0.55; animation: drift-a 13s ease-in-out infinite; animation-delay: -0.5s; }
+.motif-mol   { width: 62px; height: 62px; opacity: 0.48; animation: drift-b 17s ease-in-out infinite; animation-delay: -4s; }
+.motif-tube  { width: 30px; height: 46px; opacity: 0.5;  animation: drift-c 15s ease-in-out infinite; animation-delay: -6s; }
+.motif-atom  { width: 56px; height: 56px; opacity: 0.4;  animation: drift-d 19s ease-in-out infinite; animation-delay: -2s; }
+.motif-dna   { width: 40px; height: 55px; opacity: 0.42; animation: drift-b 16s ease-in-out infinite; animation-delay: -9s; }
+.motif-petri { width: 46px; height: 46px; opacity: 0.36; animation: drift-c 21s ease-in-out infinite; animation-delay: -3s; }
+.motif-scope { width: 52px; height: 60px; opacity: 0.32; animation: drift-a 23s ease-in-out infinite; animation-delay: -12s; }
+
+@keyframes drift-a {
+  0%,100% { transform: translate(0,0) rotate(0deg); }
+  20%     { transform: translate(9px,-10px) rotate(4deg); }
+  45%     { transform: translate(-5px,-18px) rotate(-3deg); }
+  70%     { transform: translate(-11px,-6px) rotate(2deg); }
+}
+@keyframes drift-b {
+  0%,100% { transform: translate(0,0) rotate(0deg); }
+  25%     { transform: translate(-8px,-12px) rotate(-4deg); }
+  55%     { transform: translate(7px,-22px) rotate(3deg); }
+  80%     { transform: translate(12px,-9px) rotate(-2deg); }
+}
+@keyframes drift-c {
+  0%,100% { transform: translate(0,0) rotate(0deg); }
+  30%     { transform: translate(6px,-8px) rotate(3deg); }
+  60%     { transform: translate(-9px,-16px) rotate(-4deg); }
+  85%     { transform: translate(-4px,-4px) rotate(1deg); }
+}
+@keyframes drift-d {
+  0%,100% { transform: translate(0,0) rotate(0deg); }
+  22%     { transform: translate(-6px,-14px) rotate(-2deg); }
+  50%     { transform: translate(10px,-20px) rotate(4deg); }
+  76%     { transform: translate(5px,-7px) rotate(-3deg); }
 }
 @media (max-width: 720px) {
-  .motif-mol, .motif-atom { display: none; }
+  /* hide the heaviest motifs on narrow screens */
+  .motif-mol, .motif-atom, .motif-petri, .motif-scope { display: none; }
 }
 
 .hero h1 { margin-top: 6px; max-width: 18ch; }
@@ -253,6 +280,17 @@ h3 { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
 .view-icon svg { display: block; }
 .view-card h3 { margin-bottom: 7px; }
 
+/* ---------- Context (Vending-Bench explainer) ---------- */
+.context .oneliner { max-width: 68ch; }
+.context .oneliner + .oneliner { margin-top: 16px; }
+.context-fig {
+  margin-top: clamp(28px, 4vw, 40px);
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--radius-card); box-shadow: var(--shadow-card);
+  padding: clamp(18px, 2.4vw, 26px);
+}
+.context-fig svg { display: block; width: 100%; height: auto; }
+
 /* ---------- Proof ---------- */
 .proof-card {
   margin-top: clamp(36px, 5vw, 52px);
@@ -269,9 +307,28 @@ h3 { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
 .proof-pr { padding: clamp(24px, 3vw, 34px); display: flex; flex-direction: column; justify-content: center; }
 .pr-eyebrow { font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 590; margin: 0 0 14px; }
 .pr-ref {
+  position: relative;
   font-family: var(--font-mono); font-size: 0.875rem; line-height: 1.55; color: var(--ink);
   background: var(--surface-2); border: 1px solid var(--hairline);
-  border-radius: 10px; padding: 16px 18px; margin: 0 0 18px;
+  border-radius: 10px; padding: 16px 18px; margin: 0 0 18px; cursor: default;
+  transition: border-color .2s var(--ease), box-shadow .2s var(--ease);
+}
+.pr-ref:hover, .pr-ref:focus, .pr-ref:focus-within { border-color: var(--accent-ring); outline: none; }
+.pr-ref-win { border-color: var(--accent-ring); background: var(--accent-soft); }
+.pr-result {
+  display: inline-block; margin-top: 8px; font-size: 0.9375rem; color: var(--ink-2);
+}
+.pr-result .mono { color: var(--ink); }
+/* hypothesis reveal — hover or keyboard focus */
+.pr-hint {
+  display: block; overflow: hidden; max-height: 0; opacity: 0;
+  margin-top: 0; font-family: var(--font-sans); font-size: 0.8125rem;
+  line-height: 1.5; color: var(--ink-2);
+  transition: max-height .35s var(--ease), opacity .3s var(--ease), margin-top .35s var(--ease);
+}
+.pr-hint strong { color: var(--accent-ink); font-weight: 600; }
+.pr-ref:hover .pr-hint, .pr-ref:focus .pr-hint, .pr-ref:focus-within .pr-hint {
+  max-height: 160px; opacity: 1; margin-top: 12px;
 }
 .pr-ref .pr-id { color: var(--accent-ink); font-weight: 600; }
 .pr-ref .pr-repo { color: var(--ink-2); }
