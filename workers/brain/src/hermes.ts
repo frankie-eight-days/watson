@@ -206,6 +206,7 @@ export class HermesAgent extends Agent<Env, HermesState> {
         dossierBody: wc.dossierBody,
         weakness: wc.weakness,
         linkupApiKey: this.env.LINKUP_API_KEY,
+        exaApiKey: this.env.EXA_API_KEY,
         model,
       });
       const top: Pitch | undefined = lib.pitches[0];
