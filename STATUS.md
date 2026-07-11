@@ -14,6 +14,9 @@ When the last box ticks, Frank tells the architect session "run checkpoint 1". D
 - [x] Skeleton deployed to Cloudflare (URL: https://watson-brain.frankkevinwalsh.workers.dev) — Worker + HermesAgent DO; /health 200, bench WS upgrade route live
 - [x] Bench WebSocket chat responds (Hermes says hello via terra) — VERIFIED end-to-end vs deployed URL; gpt-5.6-terra reachable via api.openai.com (no base URL); events land in Convex
 - [x] Toy workflow emits real events into Convex (engagementId: eng_toy_probe1) — commence → all 10 event types written, well-formed spawn tree
+- [x] Library upgraded to MULTI-SOURCE parallel delegation — research-director spawns linkup-scholar + exa-web + exa-scholar (concurrent) → luna dedupe (N raw→M unique, source provenance on paper artifacts) → grader → 3 terra pitches (still lands on seeds). EXA_API_KEY secret added. Verified eng_lib_1783801312
+- [x] REAL steering — UI writes steering:appendSteering; Hermes consumes (steering:pendingSteering/consumeSteering over Convex /api), injects into loop + re-emits. Chat path verified (Hermes obeyed "STEER-OK" steer); phase-boundary [applied] re-emit verified (eng_pbsteer_*). Safe/guarded, zero cost when idle
+- [x] Conversational scoping — Hermes captures repoUrl+goal into DO state during chat (state.repoUrl/goal/ready for UI), reflects back "I've got it…", COMMENCE uses captured scope + threads goal into watercooler/library. Greeting now synchronous + once-only. Verified eng_scope_*
 
 ### Tab C — Fork + Sandbox
 - [x] Fork runs locally, metric extracted (baseline numbers: run1 = $985.50 total assets; mean pending runs 2&3). gpt-5.6-luna via new OpenAI provider; demo profile = 30d/seed42/~100s/$0.93
