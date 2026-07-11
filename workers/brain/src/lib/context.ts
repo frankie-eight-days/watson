@@ -25,6 +25,7 @@ import {
   type EventType,
   type EventUsage,
 } from '@watson/shared';
+import { SteeringGate } from './steering';
 
 export type EmitMode = 'convex' | 'mock';
 
@@ -32,6 +33,8 @@ export interface BrainContextConfig {
   engagementId: string;
   /** Convex *.site* base URL for the /emit endpoint (used in 'convex' mode). */
   convexUrl: string;
+  /** Convex *.cloud* base URL for the function API (steering read/consume). */
+  convexApiUrl?: string;
   emitMode: EmitMode;
   /** JSONL output path (required in 'mock' mode). */
   mockFilePath?: string;
@@ -73,6 +76,8 @@ export class BrainContext {
   /** Shared seq counter for mock mode so all agents share one monotonic seq. */
   private readonly seqCounter = { value: 0 };
   private readonly emitters: Emitter[] = [];
+  /** Human-steering read/consume side (undefined in mock mode / no API url). */
+  private readonly steering?: SteeringGate;
 
   constructor(cfg: BrainContextConfig) {
     if (cfg.emitMode === 'mock' && !cfg.mockFilePath) {
@@ -81,6 +86,28 @@ export class BrainContext {
     this.cfg = cfg;
     this.engagementId = cfg.engagementId;
     this.models = cfg.models;
+    if (cfg.emitMode === 'convex' && cfg.convexApiUrl) {
+      const rawFetch = cfg.fetchImpl ?? (globalThis.fetch as typeof fetch);
+      this.steering = new SteeringGate(cfg.convexApiUrl, rawFetch.bind(globalThis));
+    }
+  }
+
+  /**
+   * Steering checkpoint: pull any unconsumed operator steering for `agentId`,
+   * consume it, RE-EMIT a `steering` event on that agent's stream (so the console
+   * shows it landed + was applied), and return the texts for injection into the
+   * agent's next model call. Safe: returns [] on any error, zero cost when idle.
+   */
+  async checkSteering(emitter: Emitter, agentId: string): Promise<string[]> {
+    if (!this.steering) return [];
+    const rows = await this.steering.pending(agentId);
+    const texts: string[] = [];
+    for (const row of rows) {
+      await this.steering.consume(row.steeringId);
+      texts.push(row.text);
+      await this.emit(emitter, 'steering', { text: `[applied] ${row.text}`, from: row.from ?? 'operator' });
+    }
+    return texts;
   }
 
   /** An Emitter stamped with `agentId` (and `model` for cost derivation). */

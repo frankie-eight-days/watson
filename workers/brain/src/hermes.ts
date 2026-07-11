@@ -19,6 +19,7 @@ import type { Emitter } from '@watson/shared';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import './lib/env';
 import { BrainContext } from './lib/context';
+import { SteeringGate } from './lib/steering';
 import { TerraLoopHarness } from './lib/harness';
 import { modelClientFromEnv } from './lib/model';
 import { runWatercooler } from './workflows/watercooler';
@@ -59,6 +60,7 @@ export class HermesAgent extends Agent<Env, HermesState> {
     return new BrainContext({
       engagementId: this.name,
       convexUrl: this.env.CONVEX_SITE_URL,
+      convexApiUrl: this.env.CONVEX_URL,
       emitMode: 'convex',
       models: { terra: this.env.MODEL_TERRA, luna: this.env.MODEL_LUNA },
       fetchImpl: fetch,
@@ -90,14 +92,24 @@ export class HermesAgent extends Agent<Env, HermesState> {
   }
 
   /**
-   * Steering seam: pull any human messages targeting this agent and return them
-   * for injection into the loop. Wave-1 STUB — returns []. TODO(Wave 2): read
-   * Tab A's `steering` table (POST a Convex query to CONVEX_SITE_URL) filtered
-   * by { engagementId, agentId, consumed:false }, mark them consumed, and return
-   * their text. The injection point is already wired in TerraLoopHarness.
+   * Steering seam: pull any unconsumed operator steering targeting `agentId`,
+   * consume it, and return the texts. The harness (TerraLoopHarness) injects each
+   * as a user-role message AND re-emits a `steering` event, so the console shows
+   * the message landed and was applied. Safe: returns [] on any Convex error.
    */
-  private async pollSteering(_agentId: string): Promise<string[]> {
-    return [];
+  private async pollSteering(agentId: string): Promise<string[]> {
+    try {
+      const gate = new SteeringGate(this.env.CONVEX_URL, fetch.bind(globalThis));
+      const rows = await gate.pending(agentId);
+      const texts: string[] = [];
+      for (const row of rows) {
+        await gate.consume(row.steeringId);
+        texts.push(`[Operator steering]: ${row.text}`);
+      }
+      return texts;
+    } catch {
+      return [];
+    }
   }
 
   // --------------------------------------------------------------- lifecycle

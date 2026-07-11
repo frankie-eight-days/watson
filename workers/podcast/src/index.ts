@@ -151,11 +151,24 @@ async function buildFacts(env: Env, engagementId: string): Promise<Facts> {
   // Artifact titles by kind from events.
   const dossierTitles: string[] = [];
   const reportTitles: string[] = [];
+  const paperTitles: string[] = [];
+  let experimentVerdictFromEvents: string | undefined;
   for (const ev of events) {
     if (ev.type === 'artifact' && ev.payload) {
       const t = ev.payload.title as string | undefined;
-      if (ev.payload.kind === 'dossier' && t) dossierTitles.push(t);
-      if (ev.payload.kind === 'report' && t && t !== 'podcast') reportTitles.push(t);
+      const kind = ev.payload.kind;
+      if (kind === 'dossier' && t) dossierTitles.push(t);
+      if (kind === 'report' && t && t !== 'podcast') reportTitles.push(t);
+      // Real paper names live in kind==='paper' artifacts; skip placeholder
+      // "Distillation: ..." / "Screened: ..." variants.
+      if (kind === 'paper' && t && !/^(Distillation|Screened):/i.test(t) && !paperTitles.includes(t)) {
+        paperTitles.push(t);
+      }
+      // Verdict lives in an experiment artifact whose title carries VALIDATED/REJECTED.
+      if (kind === 'experiment' && t) {
+        const m = t.match(/\b(VALIDATED|REJECTED|INCONCLUSIVE)\b/i);
+        if (m) experimentVerdictFromEvents = m[1].toLowerCase();
+      }
     }
   }
 
@@ -164,25 +177,42 @@ async function buildFacts(env: Env, engagementId: string): Promise<Facts> {
   const winning =
     pitchList.find((p) => /valid|accept|win|selected/i.test(String(p.status ?? ''))) ?? pitchList[0];
 
-  // Experiment verdict.
+  // Experiment verdict: prefer the event-stream verdict, fall back to domain.
   const expList = experiments ?? [];
   const validated = expList.find((e) => /valid/i.test(String(e.status ?? '')));
-  const experimentVerdict = validated?.status ?? expList[0]?.status;
+  const experimentVerdict = experimentVerdictFromEvents ?? validated?.status ?? expList[0]?.status;
 
   // PR: prefer merged/open with a number.
   const prList = prs ?? [];
   const pr = prList.find((p) => typeof p.number === 'number') ?? prList[0];
 
+  // Repo: domain rows are thin (repoUrl often empty); derive a name from the
+  // PR url or the dossier title when needed.
+  let repo = engagement?.repoUrl ?? '';
+  if (!repo && pr?.url) {
+    const m = String(pr.url).match(/github\.com\/([^/]+\/[^/]+?)(?:\/|$)/i);
+    if (m) repo = m[1];
+  }
+  if (!repo && dossierTitles[0]) {
+    const parts = dossierTitles[0].split(/[—-]/);
+    repo = (parts[parts.length - 1] ?? '').trim();
+  }
+  if (!repo) repo = 'the target repository';
+
+  // Prefer real paper artifact titles from events; fall back to domain rows.
+  const domainPapers = (papers ?? []).map((p) => p.title).filter(Boolean);
+  const finalPapers = (paperTitles.length > 0 ? paperTitles : domainPapers).slice(0, 5);
+
   return {
     engagementId,
-    repo: engagement?.repoUrl ?? 'the target repository',
+    repo,
     title: engagement?.title,
     metricName,
     metricUnit,
     before,
     after,
     delta: before !== undefined && after !== undefined ? after - before : undefined,
-    papers: (papers ?? []).map((p) => p.title).filter(Boolean).slice(0, 5),
+    papers: finalPapers,
     winningPitch: winning?.hypothesis,
     expectedImpact: winning?.expectedImpact,
     experimentVerdict,
