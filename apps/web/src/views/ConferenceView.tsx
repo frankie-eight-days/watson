@@ -14,7 +14,12 @@ export function ConferenceView() {
   const events = useEngagementEvents();
 
   const prs = useMemo(() => latestArtifactByRef(artifactsOfKind(events, 'pr')), [events]);
-  const report = useMemo(() => artifactsOfKind(events, 'report').at(-1) ?? null, [events]);
+  const reports = useMemo(() => artifactsOfKind(events, 'report'), [events]);
+  // The podcast announces itself as a report artifact titled 'podcast' whose body
+  // is the MP3 URL; the written report is any other report artifact.
+  const podcast = useMemo(() => reports.find((r) => /podcast/i.test(r.payload.title)) ?? null, [reports]);
+  const podcastUrl = (podcast?.payload.body ?? podcast?.payload.url ?? '').trim();
+  const report = useMemo(() => reports.filter((r) => r !== podcast).at(-1) ?? null, [reports, podcast]);
   const series = useMemo(() => foldMetricSeries(events, 'agent_time_horizon'), [events]);
   const cost = useMemo(() => latestMetric(events, 'engagement_cost'), [events]);
 
@@ -43,6 +48,35 @@ export function ConferenceView() {
           <Stat label="Engagement cost" value={formatUsd(cost.value)} sub="terra + luna" />
         )}
       </div>
+
+      {/* podcast — only when the pipeline has emitted the report/podcast artifact */}
+      {podcast && podcastUrl && (
+        <div className="hairline-card animate-fade-slide-in mb-6 overflow-hidden">
+          <div className="flex items-center gap-3 border-b border-hairline bg-accent-soft px-5 py-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 2a3 3 0 0 1 3 3v4a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3ZM5 9a5 5 0 0 0 10 0M10 14v3M7 17h6" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <div className="eyebrow text-accent-ink">Audio briefing</div>
+              <div className="truncate text-base font-semibold text-ink">{podcast.payload.title}</div>
+            </div>
+            <a
+              href={podcastUrl}
+              download
+              className="focus-ring ml-auto shrink-0 rounded-lg border border-hairline bg-surface px-3 py-1.5 text-xs font-medium text-accent-ink hover:bg-accent-soft"
+            >
+              Download ↓
+            </a>
+          </div>
+          <div className="px-5 py-4">
+            <audio controls preload="none" src={podcastUrl} className="w-full">
+              <a href={podcastUrl}>Open the audio briefing</a>
+            </audio>
+          </div>
+        </div>
+      )}
 
       {/* PRs */}
       <SectionHeader eyebrow="Pull requests" title="Shipped to the fork" />

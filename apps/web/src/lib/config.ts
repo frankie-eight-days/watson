@@ -42,6 +42,9 @@ export const DEFAULT_ENGAGEMENT_ID = 'eng_vb_001';
 export const DEMO_ENGAGEMENT_IDS: readonly string[] = ['eng_vb_001'];
 export const isDemoEngagement = (id: string) => DEMO_ENGAGEMENT_IDS.includes(id);
 
+/** Soft engagement-cost threshold ($). Crossing it raises the alert banner. */
+export const COST_ALERT_USD = 5;
+
 /** The brain (Tab B) WebSocket + HTTP endpoints for the Bench view. */
 export const BRAIN_WS_BASE: string =
   import.meta.env.VITE_BRAIN_WS ?? 'wss://watson-brain.frankkevinwalsh.workers.dev';
