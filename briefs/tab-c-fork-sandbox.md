@@ -22,3 +22,6 @@ Own the Vending-Bench fork (separate GitHub repo — the architect session will 
 
 ## Rubric you own
 Root parameter reality (real repo, real runs, real PRs), evals (baseline = named eval set; the demo profile is the versioned benchmark), Cloudflare Sandbox power-up story.
+
+## Deploy from hour zero (policy)
+Local = editing only; the product runs in the cloud from your FIRST hour. Deploy a hello-world skeleton of your component to its real cloud target (wrangler deploy / Cloudflare) before building features, then redeploy continuously. Deployment problems (bindings, secrets, WebSockets, Sandbox limits) must surface at H1, not H7. Secrets: local dev sources watson/.env.local; deployed Workers get them via `wrangler secret put`.

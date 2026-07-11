@@ -31,3 +31,6 @@ Light theme, "Apple research-lab": airy, precise, calm. Generous whitespace, hai
 
 ## Rubric you own
 Observability UI (trace tree, cost per step, run-diff view — up to 28 pts), management UI, and the WOW factor of the whole demo.
+
+## Deploy from hour zero (policy)
+Local = editing only; the product runs in the cloud from your FIRST hour. Deploy a hello-world skeleton of your component to its real cloud target (wrangler deploy / Cloudflare) before building features, then redeploy continuously. Deployment problems (bindings, secrets, WebSockets, Sandbox limits) must surface at H1, not H7. Secrets: local dev sources watson/.env.local; deployed Workers get them via `wrangler secret put`.
