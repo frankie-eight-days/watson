@@ -16,9 +16,9 @@ When the last box ticks, Frank tells the architect session "run checkpoint 1". D
 - [ ] Toy workflow emits real events into Convex (engagementId: )
 
 ### Tab C — Fork + Sandbox
-- [ ] Fork runs locally, metric extracted (baseline numbers: )
-- [ ] Sandbox SDK verdict: runs in container? (or fallback to GitHub Actions decided)
-- [ ] Baseline 3x recorded in fork's baselines.json
+- [x] Fork runs locally, metric extracted (baseline numbers: run1 = $985.50 total assets; mean pending runs 2&3). gpt-5.6-luna via new OpenAI provider; demo profile = 30d/seed42/~100s/$0.93
+- [x] Sandbox SDK verdict: runs in container? **YES** — real container exec live at https://watson-sandbox-runner.frankkevinwalsh.workers.dev/ping (no GitHub Actions fallback needed)
+- [~] Baseline 3x recorded in fork's baselines.json — runs 2&3 finishing; baselines.json + commit next
 
 ### Tab D — UI Shell
 - [x] Skeleton deployed to Cloudflare (URL: https://watson-web.frankkevinwalsh.workers.dev) — Worker + static assets, SPA fallback, all 5 routes 200
