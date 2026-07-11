@@ -6,45 +6,57 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatUsd } from '@/lib/format';
 
+const DUR = 400;
+
 export function CostTicker({ value }: { value: number }) {
   const [display, setDisplay] = useState(value);
   const [bumped, setBumped] = useState(false);
-  const fromRef = useRef(value);
+  const prev = useRef(value);
   const rafRef = useRef<number>();
+  const flashRef = useRef<number>();
 
   useEffect(() => {
-    const from = fromRef.current;
+    const from = prev.current;
     const to = value;
-    if (from === to) return;
+    prev.current = value; // commit immediately — never leave `from` stale
+    if (from === to) {
+      setDisplay(to);
+      return;
+    }
     if (to > from) {
       setBumped(true);
-      const t = window.setTimeout(() => setBumped(false), 380);
-      cleanupTimer.current = t;
+      window.clearTimeout(flashRef.current);
+      flashRef.current = window.setTimeout(() => setBumped(false), 360);
     }
     const start = performance.now();
-    const dur = 420;
     const tick = (now: number) => {
-      const p = Math.min(1, (now - start) / dur);
+      // Clamp progress to [0,1] so a non-monotonic clock can never extrapolate
+      // the eased value outside [from, to].
+      const p = Math.max(0, Math.min(1, (now - start) / DUR));
       const eased = 1 - Math.pow(1 - p, 3);
       setDisplay(from + (to - from) * eased);
       if (p < 1) rafRef.current = requestAnimationFrame(tick);
-      else fromRef.current = to;
     };
     cancelAnimationFrame(rafRef.current ?? 0);
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current ?? 0);
   }, [value]);
 
-  const cleanupTimer = useRef<number>();
-  useEffect(() => () => window.clearTimeout(cleanupTimer.current), []);
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(rafRef.current ?? 0);
+      window.clearTimeout(flashRef.current);
+    },
+    [],
+  );
 
   return (
     <span
-      className={`tnum text-lg font-semibold tabular-nums transition-colors duration-300 ${
+      className={`tnum text-lg font-semibold transition-colors duration-300 ${
         bumped ? 'text-accent-ink' : 'text-ink'
       }`}
     >
-      {formatUsd(display)}
+      {formatUsd(Math.max(0, display))}
     </span>
   );
 }
