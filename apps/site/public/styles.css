@@ -296,7 +296,7 @@ h3 { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
 .footer-line a { color: var(--ink-2); }
 
 /* ---------- Technologies marquee ---------- */
-.tech { overflow: hidden; }
+.tech { overflow: hidden; padding-block: clamp(36px, 6vw, 74px); }
 .tech-kicker { text-align: center; margin: 0 0 clamp(30px, 4vw, 46px); }
 
 .marquee {
@@ -316,16 +316,16 @@ h3 { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
   flex: none;
   display: flex;
   align-items: center;
-  gap: clamp(42px, 6vw, 78px);
+  gap: 2.5rem;
   margin: 0;
-  padding: 0 clamp(21px, 3vw, 39px);
+  padding: 0 1.25rem;
   list-style: none;
 }
 .logo-list li { flex: none; display: inline-flex; align-items: center; }
 
 .logo {
   display: block;
-  height: 26px;
+  height: 38px;
   width: auto;
   color: var(--ink-3);
   opacity: 0.92;
