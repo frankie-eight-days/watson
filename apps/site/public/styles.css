@@ -290,6 +290,14 @@ h3 { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
   padding: clamp(18px, 2.4vw, 26px);
 }
 .context-fig svg { display: block; width: 100%; height: auto; }
+.context-legend {
+  display: flex; flex-wrap: wrap; gap: 10px 20px; margin-top: 14px;
+  font-size: 0.8125rem; color: var(--ink-2);
+}
+.context-legend .lg-item { display: inline-flex; align-items: center; gap: 8px; }
+.lg-swatch { width: 18px; height: 3px; border-radius: 2px; flex: none; }
+.lg-swatch.lg-accent { background: #3a45d6; }
+.lg-swatch.lg-base { background: #b6bcc8; }
 
 /* ---------- Proof ---------- */
 .proof-card {
