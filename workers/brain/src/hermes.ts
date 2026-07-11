@@ -21,7 +21,9 @@ import './lib/env';
 import { BrainContext } from './lib/context';
 import { TerraLoopHarness } from './lib/harness';
 import { modelClientFromEnv } from './lib/model';
-import { runToyWorkflow } from './workflows/toy';
+import { runWatercooler } from './workflows/watercooler';
+import { runLibrary, type Pitch } from './workflows/library';
+import { runLab } from './workflows/lab';
 
 const PRESIDENT_PROMPT = `You are Hermes, the president of Watson — an AI research agency retained to make a client's coding agents run longer on a benchmark (a Vending-Bench fork). You run the engagement like a consulting principal.
 
@@ -169,42 +171,77 @@ export class HermesAgent extends Agent<Env, HermesState> {
   }
 
   /**
-   * COMMENCE: phase change → run workflows in sequence → report. Wave 1 runs the
-   * toy workflow (proves the full event pipe); real workflows (watercooler →
-   * library → lab) slot into this same sequence later. Callable over native DO
-   * RPC (from the HTTP /commence route) and from a WS `commence` message.
+   * COMMENCE: phase change → run the real workflow sequence → report. Hermes
+   * dispatches watercooler (repo dossier) → library (Linkup pitches) → lab (top
+   * pitch experiment via the cloud sandbox), reads each output, spawns a dynamic
+   * specialist for the lab, and reviews the result. Every step emits. Callable
+   * over native DO RPC (HTTP /commence) and from a WS `commence` message.
    */
   async commence(repoUrl?: string): Promise<{ phase: string; repoUrl?: string; report: string }> {
-    const nextRepo = repoUrl ?? this.state.repoUrl;
+    const nextRepo = repoUrl ?? this.state.repoUrl ?? 'https://github.com/frankie-eight-days/watson-vending-bench';
     this.setState({ ...this.state, repoUrl: nextRepo, phase: 'ingestion' });
 
     const ctx = this.makeContext();
     const emitter = await this.hermesEmitter(ctx);
+    const model = modelClientFromEnv(this.env);
 
-    await ctx.status(emitter, 'running', 'phase: ingestion');
-    this.broadcast(JSON.stringify({ type: 'status', phase: 'ingestion', repoUrl: nextRepo }));
-    await ctx.emit(emitter, 'thought', {
-      text: `COMMENCE for ${nextRepo ?? 'the target repo'}. Dispatching the ingestion team.`,
-      title: 'commence',
-    });
-
-    let report: string;
+    const lines: string[] = [];
     try {
-      const toy = await runToyWorkflow(ctx, { parentAgentId: 'hermes', parentEmitter: emitter });
-      await ctx.emit(emitter, 'thought', {
-        text: `Ingestion returned "${toy.dossierTitle}". Headline ${toy.headlineMetric.name}: ${toy.headlineMetric.value} ${toy.headlineMetric.unit}.`,
-        title: 'review',
+      // ---- Phase 1: Watercooler (repo ingestion) ----
+      await ctx.status(emitter, 'running', 'phase: watercooler');
+      this.broadcast(JSON.stringify({ type: 'status', phase: 'watercooler', repoUrl: nextRepo }));
+      await ctx.emit(emitter, 'thought', { text: `COMMENCE for ${nextRepo}. Dispatching the watercooler ingestion team.`, title: 'commence' });
+
+      const wc = await runWatercooler(ctx, { parentAgentId: 'hermes', repoUrl: nextRepo, ref: 'main', model });
+      await ctx.emit(emitter, 'thought', { text: `Ingestion done: "${wc.dossierTitle}". Weakness: ${wc.weakness}`, title: 'review' });
+      lines.push(`Dossier: "${wc.dossierTitle}".`);
+
+      // ---- Phase 2: Library (Linkup paper pipeline → pitches) ----
+      this.setState({ ...this.state, phase: 'library' });
+      await ctx.status(emitter, 'running', 'phase: library');
+      this.broadcast(JSON.stringify({ type: 'status', phase: 'library' }));
+
+      const lib = await runLibrary(ctx, {
+        parentAgentId: 'hermes',
+        dossierBody: wc.dossierBody,
+        weakness: wc.weakness,
+        linkupApiKey: this.env.LINKUP_API_KEY,
+        model,
       });
-      report =
-        `Ingestion complete. Dossier: "${toy.dossierTitle}". ` +
-        `Toy ${toy.headlineMetric.name} at ${toy.headlineMetric.value} ${toy.headlineMetric.unit}. ` +
-        `(Wave 1 toy workflow — real watercooler/library/lab land next.)`;
+      const top: Pitch | undefined = lib.pitches[0];
+      await ctx.emit(emitter, 'thought', { text: `Library returned ${lib.pitches.length} pitches. Top: "${top?.title}" (arXiv:${top?.arxiv}).`, title: 'review' });
+      lines.push(`${lib.pitches.length} pitches; top "${top?.title}".`);
+
+      // ---- Phase 3: Lab (top pitch → cloud sandbox experiment) ----
+      if (top) {
+        this.setState({ ...this.state, phase: 'lab' });
+        await ctx.status(emitter, 'running', 'phase: lab');
+        this.broadcast(JSON.stringify({ type: 'status', phase: 'lab' }));
+
+        const lab = await runLab(ctx, {
+          hermesAgentId: 'hermes',
+          hermesEmitter: emitter,
+          engagementId: this.name,
+          pitch: top,
+          repoUrl: nextRepo,
+          ref: 'main',
+          sandboxRunnerUrl: this.sandboxRunnerUrl(),
+          baselineMean: 821.8,
+          model,
+        });
+        lines.push(
+          lab.ran
+            ? `Lab: ${lab.verdict} — candidate $${lab.metric} vs baseline $821.80.`
+            : `Lab: experiment pending (sandbox runner offline; retry when live).`,
+        );
+      }
     } catch (err) {
       const m = err instanceof Error ? err.message : String(err);
-      await ctx.emit(emitter, 'error', { message: `workflow failed: ${m}`, fatal: false, recoverable: true });
-      report = `Kickoff hit an error: ${m}`;
+      await ctx.emit(emitter, 'error', { message: `workflow sequence failed: ${m}`, fatal: false, recoverable: true });
+      lines.push(`Error: ${m}`);
     }
 
+    const report = `Engagement complete. ${lines.join(' ')}`;
     this.setState({ ...this.state, phase: 'done' });
     await ctx.status(emitter, 'done', 'workflow sequence complete');
     this.broadcast(JSON.stringify({ type: 'status', phase: 'done' }));
@@ -212,6 +249,12 @@ export class HermesAgent extends Agent<Env, HermesState> {
     await ctx.close();
 
     return { phase: 'done', repoUrl: nextRepo, report };
+  }
+
+  /** Sandbox-runner base URL (var override, else the known deploy). */
+  private sandboxRunnerUrl(): string {
+    const fromEnv = (this.env as { SANDBOX_RUNNER_URL?: string }).SANDBOX_RUNNER_URL;
+    return fromEnv ?? 'https://watson-sandbox-runner.frankkevinwalsh.workers.dev';
   }
 
   // ---------------------------------------------------------------- helpers

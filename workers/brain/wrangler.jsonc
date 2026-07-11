@@ -25,7 +25,8 @@
     "CONVEX_SITE_URL": "https://friendly-sheep-865.convex.site",
     "MODEL_TERRA": "gpt-5.6-terra",
     "MODEL_LUNA": "gpt-5.6-luna",
-    "WATSON_EMIT_MODE": "convex"
+    "WATSON_EMIT_MODE": "convex",
+    "SANDBOX_RUNNER_URL": "https://watson-sandbox-runner.frankkevinwalsh.workers.dev"
     // "OPENAI_BASE_URL": "https://…"  // optional venue proxy override
   }
 }
