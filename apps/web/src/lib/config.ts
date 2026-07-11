@@ -9,8 +9,13 @@
  *   3. default: 'convex' when VITE_CONVEX_URL is set, else 'fixture'
  *
  * For the demo, appending `?source=fixture` to the deployed URL instantly falls
- * back to the frozen 175-event fixture through the identical render path.
+ * back to the frozen fixture through the identical render path.
  */
+// Bundled fixtures (raw) — the demo engagement id is DERIVED from whichever one
+// is active, so swapping the JSONL never desyncs the id again.
+import mockRaw from '@fixtures/mock-engagement.jsonl?raw';
+import demoRaw from '@fixtures/demo-run.jsonl?raw';
+
 export type EventSourceKind = 'fixture' | 'convex';
 
 /**
@@ -54,16 +59,34 @@ function resolveSource(): EventSourceKind {
 export const EVENT_SOURCE: EventSourceKind = resolveSource();
 // ▲▲▲
 
-/** Default engagement the switcher opens on (the fixture engagement). */
-export const DEFAULT_ENGAGEMENT_ID = 'eng_vb_001';
+/** The engagementId of a fixture's first event (future-proofs id swaps). */
+function firstEngagementId(raw: string, fallback: string): string {
+  try {
+    const line = raw.split('\n').find((l) => l.trim().length > 0);
+    if (!line) return fallback;
+    const id = (JSON.parse(line) as { engagementId?: string }).engagementId;
+    return typeof id === 'string' && id ? id : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Default engagement the switcher opens on. In the locked demo mirror it is the
+ * bundled demo-run.jsonl's engagement; otherwise the mock fixture's (which is
+ * also the Convex demo engagement). Derived from the fixture so replacing the
+ * JSONL never desyncs the id.
+ */
+export const DEFAULT_ENGAGEMENT_ID: string = DEMO_LOCKED
+  ? firstEngagementId(demoRaw, 'eng_demo')
+  : firstEngagementId(mockRaw, 'eng_vb_001');
 
 /**
  * The hand-authored demo engagement(s) — shown only when "Demo replay" is on and
  * always labeled DEMO so fixture data is never mistaken for a live run. Every
- * OTHER engagement (probes, anything the brain creates) is live. One list so a
- * second demo can be added in one place.
+ * OTHER engagement (probes, anything the brain creates) is live.
  */
-export const DEMO_ENGAGEMENT_IDS: readonly string[] = ['eng_vb_001'];
+export const DEMO_ENGAGEMENT_IDS: readonly string[] = [DEFAULT_ENGAGEMENT_ID];
 export const isDemoEngagement = (id: string) => DEMO_ENGAGEMENT_IDS.includes(id);
 
 /** Soft engagement-cost threshold ($). Crossing it raises the alert banner. */

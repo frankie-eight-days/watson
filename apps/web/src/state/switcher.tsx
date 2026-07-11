@@ -48,7 +48,7 @@ export function useAppMode(): AppModeValue {
 }
 
 const FIXTURE_ROWS: EngagementOption[] = [
-  { engagementId: DEFAULT_ENGAGEMENT_ID, title: 'vending-bench-fork', demo: true },
+  { engagementId: DEFAULT_ENGAGEMENT_ID, title: 'watson-vending-bench', demo: true },
 ];
 
 const listEngagementsRef = makeFunctionReference<'query'>('engagements:listEngagements');
