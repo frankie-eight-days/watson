@@ -1,94 +1,249 @@
 /**
- * Bench — the scoping transcript. Renders Hermes' thought + artifact scoping
- * events as a consulting-president conversation, with a (disabled) repo-URL
- * field and a styled COMMENCE RESEARCH button. All from the event stream.
+ * Bench — a live terminal to Hermes. ONE surface: the connection state, the
+ * COMMENCE kickoff, a monospace scrollback that streams Hermes's live working
+ * (spawn / thought / tool_call / handoff / status / artifact / error events,
+ * cursor-bound so it also "types out" during replay), the direct WS chat, and a
+ * prompt line. Terminal aesthetic living inside the light lab theme.
+ *
+ * The scrollback body is pure event-stream render (replay-safe); the WS overlays
+ * the interactive chat + kickoff. COMMENCE sends over the same socket and greys
+ * out to a running state once the engagement is under way.
  */
-import { useMemo } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { isEventType } from '@watson/shared';
-import { useEngagementEvents } from '@/state/hooks';
-import { Canvas, SectionHeader } from './_layout';
-import { Eyebrow, EmptyState } from '@/components/primitives';
+import { useEngagement, useSelection } from '@/state/hooks';
+import { useAppMode } from '@/state/switcher';
+import { useBenchSocket, type BenchStatus } from '@/lib/useBenchSocket';
+import { inferPhase } from '@/lib/fold';
 import { formatClock } from '@/lib/format';
 
-export function BenchView() {
-  const events = useEngagementEvents();
+type LineKind =
+  | 'spawn'
+  | 'thought'
+  | 'tool'
+  | 'handoff'
+  | 'status'
+  | 'artifact'
+  | 'error'
+  | 'user'
+  | 'hermes'
+  | 'system';
 
-  const transcript = useMemo(
-    () =>
-      events.filter(
-        (e) =>
-          e.agentId === 'hermes' &&
-          (isEventType(e, 'thought') || (isEventType(e, 'artifact') && e.payload.kind === 'card')),
-      ),
-    [events],
-  );
+interface TermLine {
+  id: string;
+  ts: number;
+  kind: LineKind;
+  who?: string;
+  text: string;
+  agentId?: string;
+}
+
+const GLYPH: Record<LineKind, { mark: string; color: string }> = {
+  spawn: { mark: '+', color: 'var(--good)' },
+  thought: { mark: '›', color: 'var(--accent-ink)' },
+  tool: { mark: '⚙', color: 'var(--ink-3)' },
+  handoff: { mark: '⇄', color: 'var(--warning)' },
+  status: { mark: '●', color: 'var(--ink-3)' },
+  artifact: { mark: '◆', color: 'var(--accent)' },
+  error: { mark: '✗', color: 'var(--critical)' },
+  user: { mark: '$', color: 'var(--ink)' },
+  hermes: { mark: '›', color: 'var(--accent-ink)' },
+  system: { mark: '—', color: 'var(--ink-3)' },
+};
+
+const CONN: Record<BenchStatus, { dot: string; label: string; color: string }> = {
+  connecting: { dot: '◐', label: 'HERMES CONNECTING', color: 'var(--warning)' },
+  open: { dot: '●', label: 'HERMES ONLINE', color: 'var(--good)' },
+  closed: { dot: '○', label: 'HERMES OFFLINE', color: 'var(--ink-3)' },
+  error: { dot: '○', label: 'HERMES UNREACHABLE', color: 'var(--critical)' },
+};
+
+export function BenchView() {
+  const { events, engagementId, agents } = useEngagement();
+  const { isDemo } = useAppMode();
+  const { selectAgent } = useSelection();
+  const { status, messages, sendUser, commence } = useBenchSocket(engagementId);
+  const [draft, setDraft] = useState('');
+  const [repoUrl, setRepoUrl] = useState('github.com/watson-labs/vending-bench-fork');
+  const [commenceSent, setCommenceSent] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Event-stream working feed (replay-safe, cursor-bound).
+  const eventLines = useMemo<TermLine[]>(() => {
+    const out: TermLine[] = [];
+    for (const e of events) {
+      const base = { id: `ev_${e.seq}`, ts: e.ts, who: e.agentId, agentId: e.agentId };
+      if (isEventType(e, 'spawn'))
+        out.push({ ...base, kind: 'spawn', text: `spawned ${e.payload.role} · ${e.payload.tier} · ${e.payload.model}` });
+      else if (isEventType(e, 'thought'))
+        out.push({ ...base, kind: 'thought', text: e.payload.title ? `${e.payload.title} — ${e.payload.text}` : e.payload.text });
+      else if (isEventType(e, 'tool_call'))
+        out.push({ ...base, kind: 'tool', text: `${e.payload.tool}(${Object.keys(e.payload.args ?? {}).join(', ')})` });
+      else if (isEventType(e, 'handoff'))
+        out.push({ ...base, kind: 'handoff', text: `→ ${e.payload.toAgentId}: ${e.payload.reason}` });
+      else if (isEventType(e, 'status'))
+        out.push({ ...base, kind: 'status', text: `${e.payload.status}${e.payload.detail ? ` · ${e.payload.detail}` : ''}` });
+      else if (isEventType(e, 'artifact'))
+        out.push({ ...base, kind: 'artifact', text: `${e.payload.kind}: ${e.payload.title}` });
+      else if (isEventType(e, 'error'))
+        out.push({
+          ...base,
+          kind: 'error',
+          text: `${e.payload.message}${e.payload.fatal ? ' (fatal)' : e.payload.recoverable ? ' (recovered)' : ''}`,
+        });
+    }
+    return out;
+  }, [events]);
+
+  // Merge with the WS chat overlay, time-ordered.
+  const lines = useMemo<TermLine[]>(() => {
+    const wsLines: TermLine[] = messages.map((m) => ({ id: m.id, ts: m.ts, kind: m.role, text: m.text }));
+    return [...eventLines, ...wsLines].sort((a, b) => a.ts - b.ts || a.id.localeCompare(b.id));
+  }, [eventLines, messages]);
+
+  const phase = inferPhase(events);
+  const running = commenceSent || agents.length > 1 || phase !== 'Bench';
+  const conn = CONN[status];
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [lines.length]);
+
+  const doCommence = () => {
+    if (running || !repoUrl.trim()) return;
+    setCommenceSent(true);
+    commence(repoUrl);
+  };
 
   return (
-    <Canvas>
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        {/* transcript */}
-        <div>
-          <SectionHeader eyebrow="Scoping conversation" title="Hermes at the Bench" />
-          <div className="hairline-card overflow-hidden">
-            {transcript.length === 0 ? (
-              <EmptyState title="The client has just arrived" hint="Hermes is preparing to scope the engagement." />
-            ) : (
-              <div className="divide-y divide-[color:var(--hairline)]">
-                {transcript.map((e) => (
-                  <div key={e.seq} className="animate-fade-slide-in flex gap-3 px-5 py-4">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[0.625rem] font-semibold text-accent-ink">
-                      H
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1 flex items-center gap-2">
-                        <span className="text-xs font-semibold text-ink">Hermes</span>
-                        <span className="tnum text-[0.625rem] text-ink-3">{formatClock(e.ts)}</span>
-                      </div>
-                      {isEventType(e, 'thought') && (
-                        <>
-                          {e.payload.title && (
-                            <div className="text-sm font-semibold text-ink">{e.payload.title}</div>
-                          )}
-                          <p className="text-sm leading-relaxed text-ink-2">{e.payload.text}</p>
-                        </>
-                      )}
-                      {isEventType(e, 'artifact') && (
-                        <div className="rounded-lg bg-surface-2 px-3 py-2">
-                          <Eyebrow>Scope note</Eyebrow>
-                          <div className="text-sm font-medium text-ink">{e.payload.title}</div>
-                          {e.payload.body && <p className="mt-1 text-[0.8125rem] text-ink-2">{e.payload.body}</p>}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+    <div className="flex h-full flex-col gap-3 p-4">
+      {/* status + kickoff strip */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface px-3 py-2">
+          <span className="relative flex items-center" style={{ color: conn.color }}>
+            {status === 'open' && (
+              <span className="absolute h-2 w-2 animate-ping rounded-full opacity-60" style={{ background: conn.color }} />
             )}
-          </div>
+            <span className="text-[0.75rem] leading-none">{conn.dot}</span>
+          </span>
+          <span className="font-mono text-[0.75rem] font-semibold tracking-wide" style={{ color: conn.color }}>
+            {conn.label}
+          </span>
+          <span className="font-mono text-[0.6875rem] text-ink-3">· {engagementId}</span>
+          {isDemo && (
+            <span className="rounded-pill bg-[color:var(--warning-soft)] px-1.5 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wider text-[color:var(--warning)]">
+              Demo
+            </span>
+          )}
         </div>
 
-        {/* commence panel */}
-        <aside>
-          <SectionHeader eyebrow="Engagement" title="Commence" />
-          <div className="hairline-card p-5">
-            <Eyebrow>Target repository</Eyebrow>
+        <div className="ml-auto flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
+          <div className="flex min-w-0 items-center rounded-lg border border-hairline bg-surface px-2.5 font-mono text-[0.75rem] text-ink-3">
+            <span className="shrink-0 text-ink-3">repo:</span>
             <input
-              disabled
-              value="github.com/watson-labs/vending-bench-fork"
-              className="mt-1.5 w-full cursor-not-allowed rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-[0.8125rem] text-ink-2"
+              value={repoUrl}
+              onChange={(e) => setRepoUrl(e.target.value)}
+              disabled={running}
+              className="min-w-0 flex-1 bg-transparent px-1.5 py-2 text-ink outline-none disabled:opacity-50"
             />
-            <p className="mt-2 text-xs text-ink-3">
-              Wired to the Bench TUI over WebSocket in the live build (Tab B). Disabled during replay.
-            </p>
-            <button
-              disabled
-              className="mt-4 w-full cursor-not-allowed rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold tracking-wide text-white opacity-60"
-            >
-              COMMENCE RESEARCH
-            </button>
           </div>
-        </aside>
+          <button
+            onClick={doCommence}
+            disabled={running || !repoUrl.trim()}
+            className={`focus-ring flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-2 text-[0.8125rem] font-semibold tracking-wide transition-opacity ${
+              running
+                ? 'cursor-not-allowed bg-surface-2 text-ink-3'
+                : 'bg-accent text-white hover:opacity-90 disabled:opacity-40'
+            }`}
+          >
+            {running ? (
+              <>
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[color:var(--good)]" />
+                RESEARCH RUNNING
+              </>
+            ) : (
+              'COMMENCE RESEARCH'
+            )}
+          </button>
+        </div>
       </div>
-    </Canvas>
+
+      {/* terminal */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-hairline bg-surface shadow-card">
+        {/* title bar */}
+        <div className="flex items-center gap-2 border-b border-hairline bg-surface-2 px-3.5 py-2">
+          <span className="flex gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--hairline-strong)' }} />
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--hairline-strong)' }} />
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--hairline-strong)' }} />
+          </span>
+          <span className="font-mono text-[0.6875rem] text-ink-3">hermes@watson — bench</span>
+        </div>
+
+        {/* scrollback */}
+        <div ref={scrollRef} className="scroll-slim min-h-0 flex-1 overflow-y-auto px-4 py-3 font-mono text-[0.75rem] leading-relaxed">
+          {lines.length === 0 ? (
+            <div className="text-ink-3">
+              <span style={{ color: 'var(--good)' }}>hermes@watson</span>:~$ awaiting the client…{' '}
+              <span className="animate-pulse">▮</span>
+            </div>
+          ) : (
+            lines.map((l) => {
+              const g = GLYPH[l.kind];
+              const isChat = l.kind === 'user' || l.kind === 'hermes' || l.kind === 'system';
+              const clickable = !!l.agentId;
+              return (
+                <div
+                  key={l.id}
+                  onClick={clickable ? () => selectAgent(l.agentId!) : undefined}
+                  className={`animate-fade-slide-in flex gap-2 py-[1px] ${
+                    clickable ? 'cursor-pointer rounded hover:bg-surface-2' : ''
+                  }`}
+                >
+                  <span className="shrink-0 tabular-nums text-ink-3 opacity-60">{formatClock(l.ts)}</span>
+                  <span className="shrink-0 font-semibold" style={{ color: g.color }}>
+                    {g.mark}
+                  </span>
+                  {l.who && !isChat && <span className="shrink-0 text-ink-2">{l.who}</span>}
+                  {l.kind === 'user' && <span className="shrink-0 font-semibold text-ink">you</span>}
+                  {l.kind === 'hermes' && <span className="shrink-0 font-semibold" style={{ color: 'var(--accent-ink)' }}>hermes</span>}
+                  <span className={l.kind === 'error' ? 'text-[color:var(--critical)]' : isChat ? 'text-ink' : 'text-ink-2'}>
+                    {l.text}
+                  </span>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* prompt */}
+        <form
+          className="flex items-center gap-2 border-t border-hairline bg-surface px-4 py-2.5 font-mono text-[0.75rem]"
+          onSubmit={(e) => {
+            e.preventDefault();
+            sendUser(draft);
+            setDraft('');
+          }}
+        >
+          <span className="shrink-0 font-semibold" style={{ color: conn.color }}>
+            you@bench
+          </span>
+          <span className="shrink-0 text-ink-3">$</span>
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={status === 'open' ? 'message Hermes…' : 'connecting to Hermes…'}
+            className="min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-ink-3"
+          />
+          <button
+            type="submit"
+            disabled={!draft.trim()}
+            className="focus-ring shrink-0 rounded-md bg-surface-2 px-2.5 py-1 text-[0.6875rem] font-medium text-ink-2 hover:text-ink disabled:opacity-40"
+          >
+            send ↵
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }

@@ -1,40 +1,51 @@
 /**
- * switcher.tsx — engagement selection, lifted ABOVE the per-engagement provider.
+ * switcher.tsx — engagement selection + the "Demo replay" toggle, lifted ABOVE
+ * the per-engagement provider.
  *
- * The list of engagements is itself derived from Convex (engagements:listEngagements)
- * in live mode, or a single static entry offline. Selecting one remounts the
- * EngagementProvider (keyed by id) so every fold restarts cleanly for the new run.
+ * The engagement list is derived from Convex (engagements:listEngagements) in
+ * live mode, or a single static entry offline. The demo engagement(s)
+ * (config.DEMO_ENGAGEMENT_IDS) are shown only when `showDemo` is on and are
+ * always flagged so fixture data never reads as a live run. Selecting an
+ * engagement remounts the EngagementProvider (keyed by id) so folds restart.
  *
- * The provider component is chosen ONCE at module load by the presence of the
- * Convex client — so the hook order is fixed and rules-of-hooks hold.
+ * The provider component is chosen ONCE at module load by Convex client presence
+ * — so hook order is fixed and rules-of-hooks hold.
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from 'convex/react';
 import { makeFunctionReference } from 'convex/server';
-import { DEFAULT_ENGAGEMENT_ID } from '@/lib/config';
+import { DEFAULT_ENGAGEMENT_ID, isDemoEngagement } from '@/lib/config';
 import { convex } from '@/lib/convexClient';
 
 export interface EngagementOption {
   engagementId: string;
   title: string;
+  demo: boolean;
 }
 
-interface SwitcherValue {
-  engagements: EngagementOption[];
+interface AppModeValue {
+  /** All rows known (live + demo), regardless of the toggle. */
+  all: EngagementOption[];
+  /** The rows offered in the switcher given the current toggle. */
+  options: EngagementOption[];
+  liveCount: number;
+  showDemo: boolean;
+  setShowDemo: (b: boolean) => void;
   engagementId: string;
   setEngagementId: (id: string) => void;
+  isDemo: boolean;
 }
 
-const SwitcherContext = createContext<SwitcherValue | null>(null);
+const AppModeContext = createContext<AppModeValue | null>(null);
 
-export function useSwitcher(): SwitcherValue {
-  const ctx = useContext(SwitcherContext);
-  if (!ctx) throw new Error('useSwitcher must be used within <SwitcherProvider>');
+export function useAppMode(): AppModeValue {
+  const ctx = useContext(AppModeContext);
+  if (!ctx) throw new Error('useAppMode must be used within <AppModeProvider>');
   return ctx;
 }
 
-const FIXTURE_OPTIONS: EngagementOption[] = [
-  { engagementId: DEFAULT_ENGAGEMENT_ID, title: 'vending-bench-fork' },
+const FIXTURE_ROWS: EngagementOption[] = [
+  { engagementId: DEFAULT_ENGAGEMENT_ID, title: 'vending-bench-fork', demo: true },
 ];
 
 const listEngagementsRef = makeFunctionReference<'query'>('engagements:listEngagements');
@@ -49,42 +60,61 @@ function titleFor(doc: EngagementDoc): string {
   if (doc.title) return doc.title;
   if (doc.repoUrl) {
     const parts = doc.repoUrl.replace(/\/$/, '').split('/');
-    return parts[parts.length - 1] || doc.engagementId;
+    if (parts[parts.length - 1]) return parts[parts.length - 1];
   }
   return doc.engagementId;
 }
 
-function Provider({
-  engagements,
-  children,
-}: {
-  engagements: EngagementOption[];
-  children: ReactNode;
-}) {
-  const [engagementId, setEngagementId] = useState(DEFAULT_ENGAGEMENT_ID);
-  const value = useMemo(
-    () => ({ engagements, engagementId, setEngagementId }),
-    [engagements, engagementId],
-  );
-  return <SwitcherContext.Provider value={value}>{children}</SwitcherContext.Provider>;
+function Provider({ all, children }: { all: EngagementOption[]; children: ReactNode }) {
+  const [showDemo, setShowDemo] = useState(true);
+  const [selected, setSelected] = useState(DEFAULT_ENGAGEMENT_ID);
+
+  const value = useMemo<AppModeValue>(() => {
+    const demos = all.filter((o) => o.demo);
+    const live = all.filter((o) => !o.demo);
+    const options = showDemo ? [...demos, ...live] : live;
+    const engagementId = options.some((o) => o.engagementId === selected)
+      ? selected
+      : options[0]?.engagementId ?? DEFAULT_ENGAGEMENT_ID;
+    return {
+      all,
+      options,
+      liveCount: live.length,
+      showDemo,
+      setShowDemo,
+      engagementId,
+      setEngagementId: setSelected,
+      isDemo: isDemoEngagement(engagementId),
+    };
+  }, [all, showDemo, selected]);
+
+  return <AppModeContext.Provider value={value}>{children}</AppModeContext.Provider>;
 }
 
-/** Live: engagements list is a reactive Convex query (default entry while loading). */
-function ConvexSwitcherProvider({ children }: { children: ReactNode }) {
+/** Live: the engagement list is a reactive Convex query. */
+function ConvexAppModeProvider({ children }: { children: ReactNode }) {
   const rows = useQuery(listEngagementsRef) as EngagementDoc[] | undefined;
-  const engagements = useMemo<EngagementOption[]>(() => {
-    if (!rows || rows.length === 0) return FIXTURE_OPTIONS;
-    return rows
-      .map((r) => ({ engagementId: r.engagementId, title: titleFor(r) }))
-      .sort((a, b) => a.engagementId.localeCompare(b.engagementId));
+  const all = useMemo<EngagementOption[]>(() => {
+    if (!rows) return FIXTURE_ROWS;
+    const mapped = rows.map((r) => ({
+      engagementId: r.engagementId,
+      title: titleFor(r),
+      demo: isDemoEngagement(r.engagementId),
+    }));
+    // Ensure the demo entry exists even before the list resolves fully.
+    if (!mapped.some((o) => o.demo)) mapped.push(...FIXTURE_ROWS);
+    return mapped.sort((a, b) => {
+      if (a.demo !== b.demo) return a.demo ? -1 : 1; // demo first
+      return b.engagementId.localeCompare(a.engagementId); // newest-ish live first
+    });
   }, [rows]);
-  return <Provider engagements={engagements}>{children}</Provider>;
+  return <Provider all={all}>{children}</Provider>;
 }
 
-/** Offline: a single static entry (the fixture engagement). */
-function FixtureSwitcherProvider({ children }: { children: ReactNode }) {
-  return <Provider engagements={FIXTURE_OPTIONS}>{children}</Provider>;
+/** Offline: a single static entry (the demo/fixture engagement). */
+function FixtureAppModeProvider({ children }: { children: ReactNode }) {
+  return <Provider all={FIXTURE_ROWS}>{children}</Provider>;
 }
 
 /** Chosen once, at module load, by Convex client presence — fixed hook order. */
-export const SwitcherProvider = convex ? ConvexSwitcherProvider : FixtureSwitcherProvider;
+export const AppModeProvider = convex ? ConvexAppModeProvider : FixtureAppModeProvider;

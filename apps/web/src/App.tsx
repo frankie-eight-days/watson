@@ -4,7 +4,7 @@
  */
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { EngagementProvider } from '@/state/EngagementProvider';
-import { SwitcherProvider, useSwitcher } from '@/state/switcher';
+import { AppModeProvider, useAppMode } from '@/state/switcher';
 import { Shell } from '@/components/Shell';
 import { BenchView } from '@/views/BenchView';
 import { WatercoolerView } from '@/views/WatercoolerView';
@@ -14,7 +14,7 @@ import { ConferenceView } from '@/views/ConferenceView';
 
 /** The selected engagement drives (and re-keys) the per-engagement provider. */
 function Routed() {
-  const { engagementId } = useSwitcher();
+  const { engagementId } = useAppMode();
   return (
     <EngagementProvider key={engagementId} engagementId={engagementId}>
       <Routes>
@@ -34,8 +34,8 @@ function Routed() {
 
 export function App() {
   return (
-    <SwitcherProvider>
+    <AppModeProvider>
       <Routed />
-    </SwitcherProvider>
+    </AppModeProvider>
   );
 }

@@ -116,6 +116,8 @@ export function EngagementProvider({
   const [loading, setLoading] = useState(true);
   const [cursorIndex, setCursorIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
+  // Tracks the last-seen event count so live appends can follow the tail.
+  const prevTotalRef = useRef(0);
   const [speed, setSpeed] = useState<number>(REPLAY.defaultSpeed);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [steering, setSteering] = useState<LocalSteering[]>([]);
@@ -135,6 +137,18 @@ export function EngagementProvider({
 
   const total = allEvents.length;
   const maxIndex = Math.max(0, total - 1);
+
+  // ── Live follow: when Convex appends new events and the cursor is already at
+  // the old tail, advance to the new tail so a running engagement keeps flowing.
+  // A user who has scrubbed back is left exactly where they are. The first
+  // snapshot (prev === 0) is left at seq 0 so replay animation can play it. ──
+  useEffect(() => {
+    const prev = prevTotalRef.current;
+    if (total > prev) {
+      if (prev > 0) setCursorIndex((i) => (i >= prev - 1 ? total - 1 : i));
+      prevTotalRef.current = total;
+    }
+  }, [total]);
 
   // ── Auto-play: advance the cursor by compressed real ts gaps ──
   useEffect(() => {

@@ -33,6 +33,15 @@ export const EVENT_SOURCE: EventSourceKind = resolveSource();
 /** Default engagement the switcher opens on (the fixture engagement). */
 export const DEFAULT_ENGAGEMENT_ID = 'eng_vb_001';
 
+/**
+ * The hand-authored demo engagement(s) — shown only when "Demo replay" is on and
+ * always labeled DEMO so fixture data is never mistaken for a live run. Every
+ * OTHER engagement (probes, anything the brain creates) is live. One list so a
+ * second demo can be added in one place.
+ */
+export const DEMO_ENGAGEMENT_IDS: readonly string[] = ['eng_vb_001'];
+export const isDemoEngagement = (id: string) => DEMO_ENGAGEMENT_IDS.includes(id);
+
 /** The brain (Tab B) WebSocket + HTTP endpoints for the Bench view. */
 export const BRAIN_WS_BASE: string =
   import.meta.env.VITE_BRAIN_WS ?? 'wss://watson-brain.frankkevinwalsh.workers.dev';

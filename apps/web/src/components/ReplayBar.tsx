@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { REPLAY } from '@/lib/config';
 import { useEngagement, useReplay } from '@/state/hooks';
+import { useAppMode } from '@/state/switcher';
 import { formatClock, formatElapsed } from '@/lib/format';
 
 const KIND_MARK: Record<string, string> = {
@@ -22,6 +23,7 @@ const KIND_MARK: Record<string, string> = {
 
 export function ReplayBar() {
   const { allEvents } = useEngagement();
+  const { showDemo, setShowDemo, isDemo } = useAppMode();
   const r = useReplay();
   const trackRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -57,8 +59,41 @@ export function ReplayBar() {
 
   const elapsed = r.currentTs && r.startTs ? r.currentTs - r.startTs : 0;
 
+  const live = r.playing && !r.atEnd;
+  const stateLabel = live ? 'Replaying' : r.atEnd ? 'Complete' : 'Paused';
+  const stateColor = live ? 'var(--good)' : r.atEnd ? 'var(--ink-3)' : 'var(--warning)';
+
   return (
-    <div className="flex items-center gap-4 border-t border-hairline bg-surface px-4 py-3">
+    <div className="flex items-center gap-3 border-t border-hairline bg-surface px-4 py-2.5">
+      {/* demo-replay toggle (controls demo-engagement visibility; scrubber below
+          works on ANY engagement, demo or a real recorded run) */}
+      <button
+        onClick={() => setShowDemo(!showDemo)}
+        role="switch"
+        aria-checked={showDemo}
+        className="focus-ring flex shrink-0 items-center gap-2 rounded-pill border border-hairline bg-surface-2 py-1 pl-1.5 pr-2.5"
+        title={showDemo ? 'Hide the demo engagement from the switcher' : 'Show the demo engagement'}
+      >
+        <span
+          className="relative h-4 w-7 rounded-full transition-colors"
+          style={{ background: showDemo ? 'var(--accent)' : 'var(--surface-3)' }}
+        >
+          <span
+            className="absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-card transition-transform"
+            style={{ left: 2, transform: showDemo ? 'translateX(12px)' : 'translateX(0)' }}
+          />
+        </span>
+        <span className="whitespace-nowrap text-[0.6875rem] font-medium text-ink-2">Demo replay</span>
+      </button>
+
+      {isDemo && (
+        <span className="hidden shrink-0 rounded-pill bg-[color:var(--warning-soft)] px-2 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wider text-[color:var(--warning)] sm:block">
+          Demo data · not live
+        </span>
+      )}
+
+      <div className="hidden h-6 w-px bg-hairline md:block" />
+
       {/* transport */}
       <div className="flex items-center gap-1">
         <button
@@ -131,6 +166,16 @@ export function ReplayBar() {
 
       {/* readout */}
       <div className="flex items-center gap-3">
+        <div className="hidden items-center gap-1.5 rounded-pill border border-hairline bg-surface-2 px-2.5 py-1 lg:flex">
+          <span className="relative flex h-1.5 w-1.5">
+            {live && (
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60" style={{ background: stateColor }} />
+            )}
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ background: stateColor }} />
+          </span>
+          <span className="text-[0.6875rem] font-medium text-ink-2">{stateLabel}</span>
+        </div>
+
         <div className="hidden flex-col items-end sm:flex">
           <span className="tnum text-xs font-medium text-ink">
             seq {r.cursorSeq} <span className="text-ink-3">/ {r.maxSeq}</span>

@@ -110,7 +110,7 @@ function Row({
   );
 }
 
-export function AgentTree() {
+export function AgentTree({ onCollapse }: { onCollapse?: () => void }) {
   const { agentTree, totals, agents } = useAgents();
   const { selectedAgentId, selectAgent } = useSelection();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -131,9 +131,23 @@ export function AgentTree() {
     <div className="flex h-full flex-col border-r border-hairline bg-surface">
       <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
         <Eyebrow>Org chart</Eyebrow>
-        <span className="tnum text-[0.6875rem] text-ink-3">
-          {agents.length} agents · {activeCount} active
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="tnum text-[0.6875rem] text-ink-3">
+            {agents.length} agents · {activeCount} active
+          </span>
+          {onCollapse && (
+            <button
+              onClick={onCollapse}
+              className="focus-ring flex h-5 w-5 items-center justify-center rounded text-ink-3 hover:bg-surface-2 hover:text-ink"
+              aria-label="Collapse org chart"
+              title="Collapse"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7.5 3 L4 6 L7.5 9" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
       <div className="scroll-slim min-h-0 flex-1 overflow-y-auto px-2 py-2">
         {agentTree.length === 0 ? (

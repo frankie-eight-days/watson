@@ -26,6 +26,7 @@ When the last box ticks, Frank tells the architect session "run checkpoint 1". D
 - [x] ReplayBar scrubs the fixture — shared cursor; live-stream and replay use one render path (event-stream-only)
 - [x] FORKED into view tabs D1/D2/D3 — all 5 canvases built from events: Lab money-shot (baseline vs candidate agent_time_horizon 23→41d + experiment cards), Watercooler (cards+dossier), Library (kanban discover→pitch w/ relevance), Conference (PRs+report+before/after)
 - [x] LIVE on Convex — swapped event-source shim to real Convex subscriptions (VITE_CONVEX_URL, watchQuery events:eventsWindow); engagement switcher lists real engagements:listEngagements; eng_vb_001 renders 175 events identically to fixture. Fixture insurance: append `?source=fixture` to the URL. https://watson-web.frankkevinwalsh.workers.dev
+- [x] Frank's redesign — nav moved to slim TOP bar; AgentTree left pane collapsible; "Demo replay" toggle in the ReplayBar (hides/labels demo eng eng_vb_001 via DEMO_ENGAGEMENT_IDS, scrubber still works on any/real recorded run); Bench rebuilt as live browser TERMINAL (WS "● HERMES ONLINE", COMMENCE over WS greys to RUNNING, spawn/thought/tool/handoff/status/artifact/error stream inline + click-to-console); live-follow tail on Convex appends. Deployed.
 
 ## Checkpoint 2 → full end-to-end run #1
 - [x] Bench chat → COMMENCE kicks a real engagement (B) — WS chat (terra) + POST /commence both verified; e.g. eng_full_1783800205
@@ -34,6 +35,9 @@ When the last box ticks, Frank tells the architect session "run checkpoint 1". D
 - [ ] One experiment executes in cloud sandbox with live metric events (B+C) — lab calls sandbox /run for top pitch; dynamic role `memory-compaction-specialist` spawned mid-run; runner emits status/metric itself. First run hit container cold-start (handled: pending+retry); added transient retry, re-verifying warm run
 - [ ] One real PR opened on watson-vending-bench by the machinery (C)
 - [ ] All five views show the run live (D1/D2/D3 + A)
+
+## Stretch: Podcast
+- [ ] ElevenLabs research-podcast pipeline — new Worker `workers/podcast/` + `convex/podcast.ts`. POST /generate {engagementId} → pulls the engagement story from Convex → gpt-5.6-terra writes a 2-host script (host + "Watson, research agency president") → ElevenLabs TTS (2 voices, eleven_turbo_v2_5) → MP3 stored in Convex file storage → artifact event (kind `report`, title `podcast`, body=URL) so the UI finds it from events alone. Returns {ok, url, durationSec, script}.
 
 ## Blockers (any tab, any time)
 Write it here, commit, tell Frank to ping the architect:
