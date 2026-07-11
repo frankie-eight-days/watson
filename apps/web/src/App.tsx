@@ -4,7 +4,7 @@
  */
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { EngagementProvider } from '@/state/EngagementProvider';
-import { DEFAULT_ENGAGEMENT_ID } from '@/lib/config';
+import { SwitcherProvider, useSwitcher } from '@/state/switcher';
 import { Shell } from '@/components/Shell';
 import { BenchView } from '@/views/BenchView';
 import { WatercoolerView } from '@/views/WatercoolerView';
@@ -12,9 +12,11 @@ import { LibraryView } from '@/views/LibraryView';
 import { LabView } from '@/views/LabView';
 import { ConferenceView } from '@/views/ConferenceView';
 
-export function App() {
+/** The selected engagement drives (and re-keys) the per-engagement provider. */
+function Routed() {
+  const { engagementId } = useSwitcher();
   return (
-    <EngagementProvider engagementId={DEFAULT_ENGAGEMENT_ID}>
+    <EngagementProvider key={engagementId} engagementId={engagementId}>
       <Routes>
         <Route element={<Shell />}>
           <Route index element={<Navigate to="/lab" replace />} />
@@ -27,5 +29,13 @@ export function App() {
         </Route>
       </Routes>
     </EngagementProvider>
+  );
+}
+
+export function App() {
+  return (
+    <SwitcherProvider>
+      <Routed />
+    </SwitcherProvider>
   );
 }

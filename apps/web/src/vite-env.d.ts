@@ -8,6 +8,9 @@ declare module '*.jsonl?raw' {
 
 interface ImportMetaEnv {
   readonly VITE_CONVEX_URL?: string;
+  readonly VITE_EVENT_SOURCE?: string;
+  readonly VITE_BRAIN_WS?: string;
+  readonly VITE_BRAIN_HTTP?: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;

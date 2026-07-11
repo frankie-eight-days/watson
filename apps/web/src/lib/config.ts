@@ -2,23 +2,42 @@
  * config.ts — the ONE swap seam.
  *
  * Watson's UI renders identically whether events come from the offline fixture
- * or a live Convex deployment. To go live, flip EVENT_SOURCE from 'fixture' to
- * 'convex' (and set VITE_CONVEX_URL). That is the single line to change.
+ * or a live Convex deployment. The active source is resolved once at boot:
  *
- * Tab A owns the Convex query/HTTP names; until they exist, 'fixture' is the
- * only active path and the app runs fully offline.
+ *   1. `?source=fixture` / `?source=convex` in the URL   (demo insurance — no rebuild)
+ *   2. VITE_EVENT_SOURCE at build time
+ *   3. default: 'convex' when VITE_CONVEX_URL is set, else 'fixture'
+ *
+ * For the demo, appending `?source=fixture` to the deployed URL instantly falls
+ * back to the frozen 175-event fixture through the identical render path.
  */
 export type EventSourceKind = 'fixture' | 'convex';
-
-// ▼▼▼ THE SWAP SEAM — flip to 'convex' when Tab A's deployment is live. ▼▼▼
-export const EVENT_SOURCE: EventSourceKind = 'fixture';
-// ▲▲▲
 
 /** The Convex deployment URL, read from Vite env when running live. */
 export const CONVEX_URL: string | undefined = import.meta.env.VITE_CONVEX_URL;
 
-/** The only engagement in the fixture. The switcher control is built regardless. */
+function resolveSource(): EventSourceKind {
+  if (typeof window !== 'undefined') {
+    const q = new URLSearchParams(window.location.search).get('source');
+    if (q === 'fixture' || q === 'convex') return q;
+  }
+  const env = import.meta.env.VITE_EVENT_SOURCE;
+  if (env === 'fixture' || env === 'convex') return env;
+  return CONVEX_URL ? 'convex' : 'fixture';
+}
+
+// ▼▼▼ THE SWAP SEAM — resolved from URL param → env → CONVEX_URL presence. ▼▼▼
+export const EVENT_SOURCE: EventSourceKind = resolveSource();
+// ▲▲▲
+
+/** Default engagement the switcher opens on (the fixture engagement). */
 export const DEFAULT_ENGAGEMENT_ID = 'eng_vb_001';
+
+/** The brain (Tab B) WebSocket + HTTP endpoints for the Bench view. */
+export const BRAIN_WS_BASE: string =
+  import.meta.env.VITE_BRAIN_WS ?? 'wss://watson-brain.frankkevinwalsh.workers.dev';
+export const BRAIN_HTTP_BASE: string =
+  import.meta.env.VITE_BRAIN_HTTP ?? 'https://watson-brain.frankkevinwalsh.workers.dev';
 
 /**
  * Replay timing: the auto-play cursor advances by each event's real inter-event

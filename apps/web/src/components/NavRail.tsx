@@ -4,6 +4,7 @@
  */
 import { NavLink } from 'react-router-dom';
 import { useEngagement } from '@/state/hooks';
+import { useSwitcher } from '@/state/switcher';
 import { inferPhase } from '@/lib/fold';
 
 interface ViewDef {
@@ -28,7 +29,8 @@ const VIEWS: ViewDef[] = [
 ];
 
 export function NavRail() {
-  const { engagementId, events, engagementTotals } = useEngagement();
+  const { events, engagementTotals } = useEngagement();
+  const { engagements, engagementId, setEngagementId } = useSwitcher();
   const phase = inferPhase(events);
 
   return (
@@ -82,11 +84,13 @@ export function NavRail() {
           <select
             value={engagementId}
             className="focus-ring w-full appearance-none rounded-lg border border-hairline bg-surface-2 py-2 pl-3 pr-8 text-[0.8125rem] font-medium text-ink"
-            onChange={() => {
-              /* only eng_vb_001 exists in the fixture; control built for parity */
-            }}
+            onChange={(e) => setEngagementId(e.target.value)}
           >
-            <option value="eng_vb_001">vending-bench-fork</option>
+            {engagements.map((opt) => (
+              <option key={opt.engagementId} value={opt.engagementId}>
+                {opt.title}
+              </option>
+            ))}
           </select>
           <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-3" width="10" height="10" viewBox="0 0 10 10">
             <path d="M2 3.5 L5 6.5 L8 3.5" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round" strokeLinejoin="round" />

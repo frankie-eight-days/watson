@@ -24,7 +24,8 @@ When the last box ticks, Frank tells the architect session "run checkpoint 1". D
 - [x] Skeleton deployed to Cloudflare (URL: https://watson-web.frankkevinwalsh.workers.dev) — Worker + static assets, SPA fallback, all 5 routes 200
 - [x] Shell + AgentTree + ConsoleDrawer render the fixture — folds events→agents/feed; per-agent cost/tokens; typed console feed
 - [x] ReplayBar scrubs the fixture — shared cursor; live-stream and replay use one render path (event-stream-only)
-- [ ] FORKED into view tabs D1/D2/D3 — next; view skeletons wired, canvases stubbed with real fixture data (Lab money-shot 23→41d live)
+- [x] FORKED into view tabs D1/D2/D3 — all 5 canvases built from events: Lab money-shot (baseline vs candidate agent_time_horizon 23→41d + experiment cards), Watercooler (cards+dossier), Library (kanban discover→pitch w/ relevance), Conference (PRs+report+before/after)
+- [x] LIVE on Convex — swapped event-source shim to real Convex subscriptions (VITE_CONVEX_URL, watchQuery events:eventsWindow); engagement switcher lists real engagements:listEngagements; eng_vb_001 renders 175 events identically to fixture. Fixture insurance: append `?source=fixture` to the URL. https://watson-web.frankkevinwalsh.workers.dev
 
 ## Checkpoint 2 → full end-to-end run #1
 - [ ] Bench chat → COMMENCE kicks a real engagement (B)

@@ -24,7 +24,9 @@ import type { AgentRecord, WatsonEvent } from '@watson/shared';
 import {
   type EngagementSource,
   FixtureEventSource,
+  ConvexEventSource,
 } from '@/lib/eventSource';
+import { convex } from '@/lib/convexClient';
 import {
   buildAgentTree,
   foldAgents,
@@ -90,8 +92,13 @@ export const EngagementContext = createContext<EngagementContextValue | null>(nu
 /** Pick the active event source. THIS is the fixture↔Convex swap. */
 function makeSource(): EngagementSource {
   if (EVENT_SOURCE === 'convex') {
-    // return new ConvexEventSource(convexClient);  // ← activate when Tab A is live
-    throw new Error('Convex source selected but not wired — see config.ts / eventSource.ts');
+    if (!convex) {
+      throw new Error(
+        'Convex source selected but VITE_CONVEX_URL is unset. ' +
+          'Set it, or append ?source=fixture to run the offline fixture.',
+      );
+    }
+    return new ConvexEventSource(convex);
   }
   return new FixtureEventSource();
 }
