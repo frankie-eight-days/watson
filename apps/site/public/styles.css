@@ -156,16 +156,12 @@ h3 { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
 .hero .lead { margin-top: 20px; }
 .hero-cta { margin-top: 34px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
 
-/* soft scroll cue (replaces demo button) */
-.scroll-cue {
-  display: inline-flex; align-items: center; gap: 10px;
-  font-size: 1rem; font-weight: 560; color: var(--ink-2);
-  padding: 11px 20px; border-radius: var(--radius-pill);
-  border: 1px solid var(--hairline-strong); background: var(--surface);
-  box-shadow: var(--shadow-card);
-  transition: color .2s var(--ease), border-color .2s var(--ease), transform .2s var(--ease);
+/* soft scroll hint (subtle muted caption) */
+.scroll-hint {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: .85rem; font-weight: 450; color: var(--ink-2);
+  letter-spacing: .01em;
 }
-.scroll-cue:hover { color: var(--accent-ink); border-color: var(--accent-ring); text-decoration: none; transform: translateY(-1px); }
 .scroll-cue-arrow {
   display: inline-flex; color: var(--accent);
   animation: cue-bob 1.8s ease-in-out infinite;
