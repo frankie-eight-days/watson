@@ -177,7 +177,7 @@ export function BenchView() {
           spellCheck={false}
           autoComplete="off"
           placeholder="https://github.com/owner/repo"
-          className="focus-ring block w-full rounded-lg border border-hairline bg-surface-2 px-4 py-3 font-mono text-[0.9375rem] tabular-nums tracking-tight text-ink placeholder:text-ink-3 disabled:opacity-50"
+          className="focus-ring block w-full rounded-lg border border-hairline bg-surface-2 px-3 py-2 font-mono text-[0.875rem] tabular-nums tracking-tight text-ink placeholder:text-ink-3 disabled:opacity-50"
         />
         <div className="mt-2 flex justify-end">
           <button

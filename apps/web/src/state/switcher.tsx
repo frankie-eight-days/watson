@@ -31,9 +31,12 @@ interface AppModeValue {
   liveCount: number;
   showDemo: boolean;
   setShowDemo: (b: boolean) => void;
+  /** '' when nothing valid is selectable (demo off + no live) → clean empty state. */
   engagementId: string;
   setEngagementId: (id: string) => void;
   isDemo: boolean;
+  /** False when there is no resolvable engagement to render. */
+  hasEngagement: boolean;
 }
 
 const AppModeContext = createContext<AppModeValue | null>(null);
@@ -73,9 +76,12 @@ function Provider({ all, children }: { all: EngagementOption[]; children: ReactN
     const demos = all.filter((o) => o.demo);
     const live = all.filter((o) => !o.demo);
     const options = showDemo ? [...demos, ...live] : live;
+    // Resolve to the selected id ONLY if it still exists in the current options;
+    // otherwise fall to the first option, or '' (no engagement) when none exist.
+    // Never silently fall back to the demo id when demo is off — that's the bug.
     const engagementId = options.some((o) => o.engagementId === selected)
       ? selected
-      : options[0]?.engagementId ?? DEFAULT_ENGAGEMENT_ID;
+      : options[0]?.engagementId ?? '';
     return {
       all,
       options,
@@ -84,7 +90,8 @@ function Provider({ all, children }: { all: EngagementOption[]; children: ReactN
       setShowDemo,
       engagementId,
       setEngagementId: setSelected,
-      isDemo: isDemoEngagement(engagementId),
+      isDemo: engagementId !== '' && isDemoEngagement(engagementId),
+      hasEngagement: engagementId !== '',
     };
   }, [all, showDemo, selected]);
 
