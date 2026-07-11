@@ -10,5 +10,5 @@
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true
   },
-  "include": ["schema.ts"]
+  "include": ["*.ts", "_generated/*.ts", "_generated/*.js"]
 }
