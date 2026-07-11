@@ -131,7 +131,11 @@ files. To PR the pushed branch verbatim with no extra commit, open it with the
 GitHub API directly (`base=main`, `head=feat/memory-compaction`); the templated
 `/pr` path always adds one commit.
 
-### Exact payload to open the winning PR during the recorded run
+### Exact payload to open the winning PR during the recorded run (RECOMMENDED)
+
+The winning change is already pushed on branch `feat/memory-compaction`. Use
+`headBranch` mode so the PR shows the **full real diff** (context.ts,
+tool-loop.ts, config.ts, …) with no synthetic commit:
 
 ```bash
 curl -X POST https://watson-sandbox-runner.frankkevinwalsh.workers.dev/pr \
@@ -139,18 +143,28 @@ curl -X POST https://watson-sandbox-runner.frankkevinwalsh.workers.dev/pr \
   -d '{
     "engagementId":"<engagementId>",
     "pitchTitle":"Memory compaction (summarize-on-evict)",
-    "title":"feat: memory compaction — Total Assets $821.80 → $843.00 on the demo profile",
-    "branchName":"lab/memory-compaction-<engagementId>",
-    "patchDescription":"Pitch A. Replaces the lossy sliding-window truncation in src/llm/context.ts (trimMessages) with MemGPT-style summarize-on-evict: when the context window overflows, the oldest block is folded into a pinned [MEMORY] note instead of dropped, preserving supplier/price/inventory/order facts across the horizon. Gated by --memory-compaction; the demo profile enables it.",
-    "files":[ {"path":"...","content":"..."} ],
-    "metricBefore":821.80,
-    "metricAfter":843.00,
+    "title":"feat: memory compaction — Total Assets $850.99 → $963.47 (+13.2%) on the 8k demo profile",
+    "headBranch":"feat/memory-compaction",
+    "base":"main",
+    "patchDescription":"Pitch A. Replaces the lossy sliding-window truncation in src/llm/context.ts (trimMessages) with MemGPT-style summarize-on-evict: when the 8k context window overflows, the oldest block is folded into a pinned [MEMORY] note instead of dropped, preserving supplier/price/inventory/order facts across the horizon. Gated by --memory-compaction; the demo profile enables it.",
+    "metricBefore":850.99,
+    "metricAfter":963.47,
     "citations":[
       {"title":"MemGPT: Towards LLMs as Operating Systems — Packer et al. 2023 (arXiv:2310.08560)","url":"https://arxiv.org/abs/2310.08560"},
       {"title":"Vending-Bench — Backlund & Petersson 2025 (arXiv:2502.15840)","url":"https://arxiv.org/abs/2502.15840"}
     ]
   }'
 ```
+
+Alternative (commit-files mode): omit `headBranch`, pass `branchName` +
+`files:[{path,content}]` to commit files onto a fresh branch off `main` and PR
+that. Used when the Lab generates the patch on the fly.
+
+Locked demo profile + numbers: **30d / 8k context / gpt-5.6-luna (effort none) /
+seed 42**. Baseline (lossy trim) **$850.99** → candidate (compaction)
+**$963.47**, +13.2%, n=3 (see the fork's `baselines.json`). Both arms complete
+30 days (no bankruptcy separation on this horizon); the gain is on Total Assets
+and concentrates in runs with more compaction events.
 
 ## Config & secrets
 

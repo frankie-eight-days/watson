@@ -325,6 +325,7 @@ interface PrBody {
   engagementId?: string;
   pitchTitle: string;
   branchName: string;
+  headBranch?: string;
   patchDescription: string;
   files: Array<{ path: string; content: string }>;
   metricBefore?: number;
@@ -348,9 +349,12 @@ async function handlePr(req: Request, env: Env): Promise<Response> {
   } catch {
     return Response.json({ ok: false, error: "invalid JSON body" }, { status: 400 });
   }
-  if (!body.pitchTitle || !body.branchName || !Array.isArray(body.files) || body.files.length === 0) {
+  // Either open a PR from an already-pushed branch (headBranch), or commit files
+  // onto a fresh branch (branchName + files[]).
+  const hasFiles = Array.isArray(body.files) && body.files.length > 0;
+  if (!body.pitchTitle || (!body.headBranch && (!body.branchName || !hasFiles))) {
     return Response.json(
-      { ok: false, error: "missing required field(s): pitchTitle, branchName, files[]" },
+      { ok: false, error: "missing required field(s): pitchTitle, and either headBranch OR (branchName + files[])" },
       { status: 400 },
     );
   }
@@ -360,9 +364,10 @@ async function handlePr(req: Request, env: Env): Promise<Response> {
     repo: body.repo || DEFAULT_REPO,
     base: body.base || "main",
     branchName: body.branchName,
+    headBranch: body.headBranch,
     pitchTitle: body.pitchTitle,
     patchDescription: body.patchDescription || "",
-    files: body.files,
+    files: body.files || [],
     metricBefore: body.metricBefore,
     metricAfter: body.metricAfter,
     citations: body.citations,

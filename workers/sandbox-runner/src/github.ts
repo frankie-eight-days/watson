@@ -27,6 +27,11 @@ export interface OpenPrInput {
   pitchTitle: string;
   patchDescription: string;
   files: PrFile[];
+  /**
+   * If set, open the PR directly FROM this already-pushed branch (full real
+   * diff, no synthetic commit). Takes precedence over `branchName`/`files`.
+   */
+  headBranch?: string;
   metricBefore?: number;
   metricAfter?: number;
   citations?: Citation[];
@@ -124,6 +129,21 @@ function toBase64(str: string): string {
 export async function openPr(token: string, input: OpenPrInput): Promise<OpenPrResult> {
   const { owner, repo, base, branchName, files } = input;
   try {
+    // Direct mode: PR straight from an already-pushed branch (full real diff).
+    if (input.headBranch) {
+      const pr = await gh(token, "POST", `/repos/${owner}/${repo}/pulls`, {
+        title: input.title ?? input.pitchTitle,
+        head: input.headBranch,
+        base,
+        body: renderBody(input),
+        draft: input.draft ?? false,
+      });
+      if (pr.status >= 300) {
+        return { ok: false, error: `open pr: ${pr.status} ${JSON.stringify(pr.json)}`, branch: input.headBranch };
+      }
+      return { ok: true, prUrl: pr.json.html_url, prNumber: pr.json.number, branch: input.headBranch };
+    }
+
     // 1. Resolve base branch head commit + its tree.
     const baseRef = await gh(token, "GET", `/repos/${owner}/${repo}/git/ref/heads/${base}`);
     if (baseRef.status >= 300) {
