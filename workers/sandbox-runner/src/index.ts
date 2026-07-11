@@ -392,8 +392,10 @@ export default {
 
     if (url.pathname === "/ping") {
       try {
-        const sandbox = getSandbox(env.Sandbox, "skeleton-ping");
-        const result = await sandbox.exec("echo hello-from-sandbox");
+        // Dedicated ping sandbox so a health check never collides with a /run
+        // container; retry through cold-start ("Container is starting").
+        const sandbox = getSandbox(env.Sandbox, "health-ping");
+        const result = await execR(sandbox, "echo hello-from-sandbox", { timeout: 30_000 });
         return Response.json({
           ok: result.success,
           stdout: result.stdout.trim(),
