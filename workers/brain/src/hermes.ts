@@ -291,11 +291,11 @@ export class HermesAgent extends Agent<Env, HermesState> {
         model,
       });
       const top: Pitch | undefined = lib.pitches[0];
-      await ctx.emit(emitter, 'thought', { text: `Library returned ${lib.pitches.length} pitches. Top: "${top?.title}" (arXiv:${top?.arxiv}).`, title: 'review' });
+      await ctx.emit(emitter, 'thought', { text: `Library returned ${lib.pitches.length} pitches. Top: "${top?.title}" (arXiv:${top?.arxiv}). Dispatching all pitches to the lab in parallel.`, title: 'review' });
       lines.push(`${lib.pitches.length} pitches; top "${top?.title}".`);
 
-      // ---- Phase 3: Lab (top pitch → cloud sandbox experiment) ----
-      if (top) {
+      // ---- Phase 3: Lab (author code live per pitch, prove in the sandbox) ----
+      if (lib.pitches.length) {
         this.setState({ ...this.state, phase: 'lab' });
         await ctx.status(emitter, 'running', 'phase: lab');
         this.broadcast(JSON.stringify({ type: 'status', phase: 'lab' }));
@@ -304,18 +304,16 @@ export class HermesAgent extends Agent<Env, HermesState> {
           hermesAgentId: 'hermes',
           hermesEmitter: emitter,
           engagementId: this.name,
-          pitch: top,
+          pitches: lib.pitches,
           repoUrl: nextRepo,
-          candidateRef: 'feat/memory-compaction',
           sandboxRunnerUrl: this.sandboxRunnerUrl(),
           convexApiUrl: this.env.CONVEX_URL,
           goal,
           model,
         });
+        const wins = lab.outcomes.filter((o) => o.verdict === 'validated');
         lines.push(
-          lab.ran
-            ? `Lab: ${lab.verdict} — candidate $${lab.candidate?.toFixed(2)} vs baseline $${lab.baseline?.toFixed(2)}${lab.prUrl ? `; PR ${lab.prUrl}` : ''}.`
-            : `Lab: experiment pending (sandbox did not complete both arms; retry when healthy).`,
+          `Lab: baseline $${lab.baseline?.toFixed(2)}; ${wins.length}/${lab.outcomes.length} pitches validated${lab.prUrls.length ? `; PR(s): ${lab.prUrls.join(', ')}` : ''}.`,
         );
       }
     } catch (err) {
