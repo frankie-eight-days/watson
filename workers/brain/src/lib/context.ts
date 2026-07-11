@@ -21,6 +21,9 @@ import {
   MockEmitter,
   type AgentTier,
   type Emitter,
+  type EventPayloadMap,
+  type EventType,
+  type EventUsage,
 } from '@watson/shared';
 
 export type EmitMode = 'convex' | 'mock';
@@ -92,12 +95,15 @@ export class BrainContext {
         seqCounter: this.seqCounter,
       });
     } else {
+      // Bind fetch to globalThis: the shared client calls `this.fetchImpl(...)`,
+      // and an unbound global `fetch` throws "Illegal invocation" in Workers.
+      const rawFetch = this.cfg.fetchImpl ?? (globalThis.fetch as typeof fetch);
       emitter = new EventEmitterClient({
         convexUrl: this.cfg.convexUrl,
         engagementId: this.engagementId,
         agentId,
         model,
-        fetchImpl: this.cfg.fetchImpl ?? (globalThis.fetch as typeof fetch),
+        fetchImpl: rawFetch.bind(globalThis),
       });
     }
     this.emitters.push(emitter);
@@ -108,8 +114,12 @@ export class BrainContext {
    * Bring an agent into existence: mint its id, build its emitter, and
    * self-emit its `spawn` as the FIRST event on that agent's stream. Enforces
    * the contract rule that `parentAgentId` is null iff the agent is Hermes.
+   *
+   * The spawn is FLUSHED before returning so that in multi-agent orchestration a
+   * parent's spawn always gets a lower `seq` than its children's — replay can
+   * then rebuild the tree with parents-before-children by walking `seq`.
    */
-  spawn(args: SpawnArgs): SpawnedAgent {
+  async spawn(args: SpawnArgs): Promise<SpawnedAgent> {
     const isHermes = args.tier === 'hermes';
     if (isHermes && args.parentAgentId !== null) {
       throw new Error('spawn: Hermes must have parentAgentId=null');
@@ -127,21 +137,37 @@ export class BrainContext {
       model: args.model,
       ...(args.label ? { label: args.label } : {}),
     });
+    await emitter.flush();
     return { agentId, emitter };
   }
 
-  /** Emit a `handoff` from one agent to another. */
-  handoff(from: Emitter, toAgentId: string, reason: string, summary: string): void {
-    from.emit('handoff', { toAgentId, reason, summary });
+  /**
+   * Emit one event and flush it immediately, so `seq` follows true emission
+   * order (gapless, monotonic ts) even when several agents interleave. Use this
+   * in orchestration code where ordering across agents matters.
+   */
+  async emit<K extends EventType>(
+    emitter: Emitter,
+    type: K,
+    payload: EventPayloadMap[K],
+    usage?: EventUsage,
+  ): Promise<void> {
+    emitter.emit(type, payload, usage);
+    await emitter.flush();
   }
 
-  /** Emit a lifecycle `status` transition for an agent. */
-  status(
+  /** Emit a `handoff` from one agent to another (flushed). */
+  async handoff(from: Emitter, toAgentId: string, reason: string, summary: string): Promise<void> {
+    await this.emit(from, 'handoff', { toAgentId, reason, summary });
+  }
+
+  /** Emit a lifecycle `status` transition for an agent (flushed). */
+  async status(
     emitter: Emitter,
     status: 'spawned' | 'running' | 'waiting' | 'done' | 'failed',
     detail?: string,
-  ): void {
-    emitter.emit('status', { status, ...(detail ? { detail } : {}) });
+  ): Promise<void> {
+    await this.emit(emitter, 'status', { status, ...(detail ? { detail } : {}) });
   }
 
   /** Flush + close every emitter created in this engagement. */

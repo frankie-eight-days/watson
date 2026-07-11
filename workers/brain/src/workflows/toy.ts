@@ -11,6 +11,9 @@
  * stream, not the content. It exercises all ten types:
  *   spawn · thought · tool_call · tool_result · handoff · status · artifact ·
  *   metric · steering · error
+ *
+ * Every emit goes through `ctx.emit` (flush-per-emit) so the multi-agent stream
+ * is strictly ordered: gapless `seq`, monotonic `ts`, parents before children.
  */
 
 import type { BrainContext } from '../lib/context';
@@ -38,15 +41,16 @@ export async function runToyWorkflow(
   args: ToyWorkflowArgs,
 ): Promise<ToyWorkflowResult> {
   // --- orchestrator (terra) under Hermes ---
-  const orch = ctx.spawn({
+  const orch = await ctx.spawn({
     parentAgentId: args.parentAgentId,
     role: 'toy-ingestion-orchestrator',
     tier: 'orchestrator',
     model: ctx.models.terra,
     label: 'Toy Orchestrator',
   });
-  ctx.status(orch.emitter, 'running');
-  orch.emitter.emit(
+  await ctx.status(orch.emitter, 'running');
+  await ctx.emit(
+    orch.emitter,
     'thought',
     { text: 'Kicking off the toy ingestion sweep; fanning out two scouts.', title: 'plan' },
     { tokensIn: 180, tokensOut: 60, model: ctx.models.terra },
@@ -60,22 +64,23 @@ export async function runToyWorkflow(
   ];
 
   for (const [i, spec] of workerSpecs.entries()) {
-    const worker = ctx.spawn({
+    const worker = await ctx.spawn({
       parentAgentId: orch.agentId,
       role: spec.role,
       tier: 'worker',
       model: ctx.models.luna,
       label: `Scout ${i + 1}`,
     });
-    ctx.status(worker.emitter, 'running');
-    worker.emitter.emit(
+    await ctx.status(worker.emitter, 'running');
+    await ctx.emit(
+      worker.emitter,
       'thought',
       { text: `Scanning ${spec.target} for the ${spec.found}.` },
       { tokensIn: 90, tokensOut: 30, model: ctx.models.luna },
     );
 
     const callId = `toolcall_${worker.agentId}_read`;
-    worker.emitter.emit('tool_call', {
+    await ctx.emit(worker.emitter, 'tool_call', {
       tool: 'read_file',
       args: { path: spec.target },
       callId,
@@ -83,13 +88,13 @@ export async function runToyWorkflow(
 
     // First scout demonstrates a recoverable error before succeeding.
     if (i === 0) {
-      worker.emitter.emit('error', {
+      await ctx.emit(worker.emitter, 'error', {
         message: `transient: ${spec.target} not found on first attempt, retrying`,
         recoverable: true,
       });
     }
 
-    worker.emitter.emit('tool_result', {
+    await ctx.emit(worker.emitter, 'tool_result', {
       tool: 'read_file',
       callId,
       ok: true,
@@ -97,17 +102,17 @@ export async function runToyWorkflow(
     });
 
     findings.push(spec.found);
-    ctx.status(worker.emitter, 'done');
-    await worker.emitter.flush();
+    await ctx.status(worker.emitter, 'done');
   }
 
   // --- demonstrate the steering seam flowing through the pipe ---
-  orch.emitter.emit('steering', {
+  await ctx.emit(orch.emitter, 'steering', {
     text: 'Operator: prioritize the time-horizon metric in the dossier.',
     from: 'frank',
   });
 
-  orch.emitter.emit(
+  await ctx.emit(
+    orch.emitter,
     'thought',
     { text: `Scouts returned: ${findings.join('; ')}. Compiling the dossier.`, title: 'synthesis' },
     { tokensIn: 240, tokensOut: 110, model: ctx.models.terra },
@@ -120,7 +125,7 @@ export async function runToyWorkflow(
     { x: 2, y: 33.2 },
     { x: 3, y: 41.0 },
   ];
-  orch.emitter.emit('metric', {
+  await ctx.emit(orch.emitter, 'metric', {
     name: 'time_horizon',
     value: 41.0,
     unit: 'days',
@@ -130,7 +135,7 @@ export async function runToyWorkflow(
 
   // --- durable artifact (dossier card) ---
   const dossierTitle = 'Toy Repo Dossier';
-  orch.emitter.emit('artifact', {
+  await ctx.emit(orch.emitter, 'artifact', {
     kind: 'dossier',
     title: dossierTitle,
     body:
@@ -141,14 +146,13 @@ export async function runToyWorkflow(
   });
 
   // --- hand results back to the parent (Hermes) and finish ---
-  ctx.handoff(
+  await ctx.handoff(
     orch.emitter,
     args.parentAgentId,
     'toy workflow complete',
     `Dossier ready ("${dossierTitle}"); toy time-horizon 41.0 days across ${series.length} points.`,
   );
-  ctx.status(orch.emitter, 'done');
-  await orch.emitter.flush();
+  await ctx.status(orch.emitter, 'done');
 
   return {
     orchestratorId: orch.agentId,
