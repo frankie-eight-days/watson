@@ -11,10 +11,22 @@ import { useState } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { useSelection } from '@/state/hooks';
 import { useAppMode } from '@/state/switcher';
+import { DEMO_LOCKED } from '@/lib/config';
 import { TopBar } from './TopBar';
 import { AlertBanner } from './AlertBanner';
 import { ConsoleDrawer } from './ConsoleDrawer';
 import { ReplayBar } from './ReplayBar';
+import { WelcomeModal } from './WelcomeModal';
+
+const WELCOME_KEY = 'watson.demo.welcomeSeen';
+
+function welcomeSeen(): boolean {
+  try {
+    return localStorage.getItem(WELCOME_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 function NoEngagement({ onShowDemo }: { onShowDemo: () => void }) {
   return (
@@ -50,6 +62,8 @@ function NoEngagement({ onShowDemo }: { onShowDemo: () => void }) {
 
 export function Shell() {
   const [consoleOpen, setConsoleOpen] = useState(true);
+  // Demo mirror only: show the explainer on first visit, re-openable from "?".
+  const [welcomeOpen, setWelcomeOpen] = useState(() => DEMO_LOCKED && !welcomeSeen());
   const { selectAgent } = useSelection();
   const { hasEngagement, setShowDemo } = useAppMode();
 
@@ -58,12 +72,22 @@ export function Shell() {
     setConsoleOpen(true);
   };
 
+  const closeWelcome = () => {
+    setWelcomeOpen(false);
+    try {
+      localStorage.setItem(WELCOME_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg">
-      <TopBar />
+      <TopBar onHelp={DEMO_LOCKED ? () => setWelcomeOpen(true) : undefined} />
       {hasEngagement && <AlertBanner onFocusAgent={focusAgent} />}
-      <main className="min-h-0 flex-1 overflow-hidden">
+      <main className="relative min-h-0 flex-1 overflow-hidden">
         {hasEngagement ? <Outlet /> : <NoEngagement onShowDemo={() => setShowDemo(true)} />}
+        {DEMO_LOCKED && <WelcomeModal open={welcomeOpen} onClose={closeWelcome} />}
       </main>
       <ConsoleDrawer open={consoleOpen} onToggle={() => setConsoleOpen((o) => !o)} />
       <ReplayBar />

@@ -25,7 +25,7 @@ const VIEWS = [
   { to: '/conference', label: 'Conference', icon: icon('M3 4h14v9H3zM7 17h6M10 13v4') },
 ];
 
-export function TopBar() {
+export function TopBar({ onHelp }: { onHelp?: () => void }) {
   const { events, engagementTotals } = useEngagement();
   const { options, engagementId, setEngagementId, isDemo } = useAppMode();
   const phase = inferPhase(events);
@@ -117,6 +117,22 @@ export function TopBar() {
           <span className="eyebrow leading-none">Cost</span>
           <CostTicker value={engagementTotals.costUsd} />
         </div>
+
+        {/* about-this-demo (mirror only) */}
+        {onHelp && (
+          <button
+            onClick={onHelp}
+            aria-label="About this demo"
+            title="About this demo"
+            className="focus-ring flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-hairline text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="8" cy="8" r="6.25" />
+              <path d="M6.4 6.2a1.6 1.6 0 1 1 2.2 1.5c-.5.25-.85.6-.85 1.2v.3" strokeLinecap="round" />
+              <circle cx="8" cy="11.4" r="0.55" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
+        )}
       </div>
     </header>
   );
