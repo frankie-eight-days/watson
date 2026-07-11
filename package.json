@@ -4,6 +4,16 @@
   "workspaces": [
     "apps/*",
     "workers/*",
-    "packages/*"
-  ]
+    "packages/*",
+    "convex"
+  ],
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "convex": "^1.17.0",
+    "typescript": "^5.7.0"
+  },
+  "scripts": {
+    "typecheck:shared": "tsc --noEmit -p packages/shared/tsconfig.json",
+    "typecheck:convex": "tsc --noEmit -p convex/tsconfig.json"
+  }
 }
