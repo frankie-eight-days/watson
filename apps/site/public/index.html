@@ -20,28 +20,85 @@
     </svg>
     Labbench
   </a>
-  <a class="topbar-link" href="https://watson-demo.frankkevinwalsh.workers.dev">Live demo &rarr;</a>
+  <nav class="topbar-nav" aria-label="Sections">
+    <a class="topbar-link" href="#how">How it works</a>
+    <a class="topbar-link" href="#proof">Proof</a>
+    <a class="topbar-link" href="#built">Built on</a>
+  </nav>
 </header>
 
 <main id="top">
 
   <!-- ============ 1 · HERO ============ -->
   <section class="hero">
+    <!-- layer 1: dotted grid -->
     <svg class="hero-grid" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
       <defs>
         <pattern id="grid" width="34" height="34" patternUnits="userSpaceOnUse">
           <path d="M34 0 H0 V34" fill="none" stroke="rgba(17,20,34,0.055)" stroke-width="1"/>
         </pattern>
+        <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">
+          <circle cx="1.4" cy="1.4" r="1.4" fill="rgba(58,69,214,0.10)"/>
+        </pattern>
       </defs>
       <rect width="100%" height="100%" fill="url(#grid)"/>
+      <rect width="100%" height="100%" fill="url(#dots)"/>
     </svg>
+
+    <!-- layer 2: faint mesh-gradient blobs -->
+    <div class="hero-mesh" aria-hidden="true">
+      <span class="blob blob-a"></span>
+      <span class="blob blob-b"></span>
+      <span class="blob blob-c"></span>
+    </div>
+
+    <!-- layer 3: floating lab motifs -->
+    <div class="hero-motifs" aria-hidden="true">
+      <!-- flask -->
+      <svg class="motif motif-flask" viewBox="0 0 48 48" fill="none">
+        <path d="M19 5 h10 M21 5 v12 L11 37 a4 4 0 0 0 3.5 6 h19 a4 4 0 0 0 3.5-6 L27 17 V5"
+              stroke="#3a45d6" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+        <path d="M16 30 h16" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
+        <circle cx="21" cy="35" r="1.5" fill="#3a45d6" opacity="0.55"/>
+        <circle cx="27" cy="38" r="1.1" fill="#3a45d6" opacity="0.4"/>
+      </svg>
+      <!-- molecule / node-graph -->
+      <svg class="motif motif-mol" viewBox="0 0 60 60" fill="none">
+        <line x1="12" y1="14" x2="30" y2="30" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
+        <line x1="30" y1="30" x2="50" y2="18" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
+        <line x1="30" y1="30" x2="24" y2="50" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
+        <line x1="30" y1="30" x2="48" y2="46" stroke="#3a45d6" stroke-width="1.4" opacity="0.5"/>
+        <circle cx="12" cy="14" r="3.4" fill="#fff" stroke="#3a45d6" stroke-width="1.6"/>
+        <circle cx="50" cy="18" r="3.4" fill="#fff" stroke="#3a45d6" stroke-width="1.6"/>
+        <circle cx="24" cy="50" r="3.4" fill="#fff" stroke="#3a45d6" stroke-width="1.6"/>
+        <circle cx="48" cy="46" r="3.4" fill="#fff" stroke="#3a45d6" stroke-width="1.6"/>
+        <circle cx="30" cy="30" r="4.4" fill="#3a45d6"/>
+      </svg>
+      <!-- test tube -->
+      <svg class="motif motif-tube" viewBox="0 0 32 48" fill="none">
+        <path d="M11 4 h10 M13 4 v34 a3 3 0 0 0 6 0 V4" stroke="#3a45d6" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M13 26 h6 v12 a3 3 0 0 1-6 0 z" fill="#3a45d6" opacity="0.12"/>
+        <circle cx="16" cy="33" r="1.3" fill="#3a45d6" opacity="0.5"/>
+      </svg>
+      <!-- orbit / atom -->
+      <svg class="motif motif-atom" viewBox="0 0 56 56" fill="none">
+        <ellipse cx="28" cy="28" rx="22" ry="9" stroke="#3a45d6" stroke-width="1.4" opacity="0.45"/>
+        <ellipse cx="28" cy="28" rx="22" ry="9" stroke="#3a45d6" stroke-width="1.4" opacity="0.45" transform="rotate(60 28 28)"/>
+        <ellipse cx="28" cy="28" rx="22" ry="9" stroke="#3a45d6" stroke-width="1.4" opacity="0.45" transform="rotate(120 28 28)"/>
+        <circle cx="28" cy="28" r="3.6" fill="#3a45d6"/>
+      </svg>
+    </div>
+
     <div class="wrap reveal">
       <p class="eyebrow">Labbench — an AI research agency, in the cloud</p>
-      <h1>Your research department,<br>on retainer.</h1>
+      <h1 class="hero-title">An AI Research Consultancy in the Cloud</h1>
+      <p class="hero-subhead">Your research department, on retainer.</p>
       <p class="lead">Point Labbench at your repo. It reads the latest papers, runs real experiments in cloud sandboxes, and ships pull requests — with a report and a podcast.</p>
       <div class="hero-cta">
-        <a class="btn btn-primary btn-lg" href="https://watson-demo.frankkevinwalsh.workers.dev">See the demo &rarr;</a>
-        <a class="quiet-link" href="#how">How it works &darr;</a>
+        <a class="scroll-cue" href="#how">
+          <span class="scroll-cue-arrow" aria-hidden="true">&darr;</span>
+          See how it works
+        </a>
       </div>
     </div>
   </section>
@@ -52,6 +109,33 @@
       <p class="eyebrow">The problem</p>
       <h2 class="section-head">You shouldn't have to quit your job to keep up.</h2>
       <p class="oneliner">The running joke is that keeping up with AI research is a full-time job. Every week ships results that could change your product — and you're busy shipping the product.</p>
+    </div>
+
+    <div class="wrap reveal">
+      <a class="tweet-card" href="https://x.com/Star_Knight12/status/2026925661689114813" target="_blank" rel="noopener noreferrer" aria-label="Post by Prasenjit on X: to keep up with AI, you need to be unemployed">
+        <div class="tweet-head">
+          <img class="tweet-avatar" src="data:image/jpeg;base64,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" alt="" width="44" height="44" loading="lazy">
+          <div class="tweet-id">
+            <span class="tweet-name">
+              Prasenjit
+              <svg class="tweet-badge" viewBox="0 0 22 22" aria-label="Verified account" role="img">
+                <path fill="#1d9bf0" d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.749 1.688.878.633.13 1.29.08 1.896-.144.274.586.705 1.086 1.245 1.44.54.355 1.17.554 1.816.572.647-.018 1.276-.217 1.817-.572.54-.354.972-.854 1.245-1.44.604.239 1.266.303 1.906.184.64-.12 1.231-.417 1.705-.859.442-.474.739-1.066.858-1.706.12-.64.055-1.301-.184-1.906.586-.274 1.086-.705 1.44-1.245.356-.54.555-1.17.574-1.817zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/>
+              </svg>
+            </span>
+            <span class="tweet-handle">@Star_Knight12</span>
+          </div>
+          <svg class="tweet-logo" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+          </svg>
+        </div>
+        <p class="tweet-text">to keep up with AI, you need to be unemployed</p>
+        <p class="tweet-meta"><span class="tweet-views-n">499.7K</span> views · Feb 26, 2026</p>
+        <div class="tweet-stats">
+          <span><b>11,251</b> Likes</span>
+          <span><b>1,364</b> Reposts</span>
+          <span><b>780</b> Replies</span>
+        </div>
+      </a>
     </div>
   </section>
 
