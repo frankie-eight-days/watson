@@ -1,29 +1,19 @@
 /**
  * WelcomeModal — the demo mirror's first-load explainer (DEMO_LOCKED only).
  *
- * A judge should read it in ~10s. It overlays the CANVAS only (not the TopBar or
- * ReplayBar), so the replay controls are never blocked. Dismiss via X, the
- * primary button, click-outside, or Esc; first-load state is remembered in
- * localStorage and re-openable from the header "?".
+ * There is intentionally NO dismiss affordance (no X, no click-outside, no Esc,
+ * no skip) — the only way forward is "Take the tour →", so every judge goes
+ * through the guided walkthrough. Overlays the canvas only.
  */
-import { useEffect } from 'react';
 
 export function WelcomeModal({
   open,
-  onClose,
   onTakeTour,
 }: {
   open: boolean;
   onClose: () => void;
   onTakeTour: () => void;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
-
   if (!open) return null;
 
   return (
@@ -33,25 +23,11 @@ export function WelcomeModal({
       aria-modal="true"
       aria-label="About this demo"
     >
-      {/* backdrop (canvas only) */}
-      <div
-        className="absolute inset-0 backdrop-blur-[2px]"
-        style={{ background: 'rgba(22, 24, 31, 0.22)' }}
-        onClick={onClose}
-      />
+      {/* backdrop (canvas only) — non-interactive; no click-to-dismiss */}
+      <div className="absolute inset-0 backdrop-blur-[2px]" style={{ background: 'rgba(22, 24, 31, 0.22)' }} />
 
       {/* card */}
       <div className="animate-fade-slide-in relative w-full max-w-md overflow-hidden rounded-2xl border border-hairline bg-surface shadow-lift">
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="focus-ring absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-ink-3 hover:bg-surface-2 hover:text-ink"
-        >
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-            <path d="M2.5 2.5 L10.5 10.5 M10.5 2.5 L2.5 10.5" />
-          </svg>
-        </button>
-
         <div className="px-6 pb-6 pt-7">
           <span className="inline-flex items-center gap-1.5 rounded-pill bg-[color:var(--warning-soft)] px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wider text-[color:var(--warning)]">
             ● Recorded run
@@ -78,18 +54,12 @@ export function WelcomeModal({
             <span>Use the timeline at the bottom to scrub the run.</span>
           </div>
 
-          <div className="mt-5 flex flex-col gap-2">
+          <div className="mt-5">
             <button
               onClick={onTakeTour}
               className="focus-ring w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold tracking-wide text-white transition-opacity hover:opacity-90"
             >
               Take the tour →
-            </button>
-            <button
-              onClick={onClose}
-              className="focus-ring w-full rounded-lg border border-hairline px-4 py-2 text-[0.8125rem] font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
-            >
-              Skip, just replay
             </button>
           </div>
         </div>

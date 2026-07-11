@@ -311,22 +311,24 @@ export function ConferenceView() {
       )}
 
       {/* 3 — PULL REQUESTS */}
-      <SectionHeader eyebrow="Pull requests" title="Shipped to the fork" />
-      {prs.length === 0 ? (
-        <EmptyState title="No PRs yet" hint="A validated experiment opens a pull request on the fork." />
-      ) : (
-        <div className="mb-6 grid gap-3 sm:grid-cols-2">
-          {prs.map((pr) => (
-            <EventCard
-              key={pr.seq}
-              artifact={pr}
-              accent="var(--good)"
-              meta={<Pill tone="good">open</Pill>}
-              footer={<span className="tnum text-[0.6875rem] text-ink-3">{pr.payload.refId}</span>}
-            />
-          ))}
-        </div>
-      )}
+      <div data-tour="conference-prs">
+        <SectionHeader eyebrow="Pull requests" title="Shipped to the fork" />
+        {prs.length === 0 ? (
+          <EmptyState title="No PRs yet" hint="A validated experiment opens a pull request on the fork." />
+        ) : (
+          <div className="mb-6 grid gap-3 sm:grid-cols-2">
+            {prs.map((pr) => (
+              <EventCard
+                key={pr.seq}
+                artifact={pr}
+                accent="var(--good)"
+                meta={<Pill tone="good">open</Pill>}
+                footer={<span className="tnum text-[0.6875rem] text-ink-3">{pr.payload.refId}</span>}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* 5 — REPORT */}
       <SectionHeader eyebrow="Report" title="Engagement write-up" />

@@ -99,7 +99,14 @@ const STEPS: TourStep[] = [
     route: '/conference',
     selector: '[data-tour="conference"]',
     title: 'The results',
-    body: 'The payoff — a real lift over a fair baseline (with the variance disclosed), two real PRs opened on the fork, and the written report.',
+    body: 'The verdict: $634.50 → $949 (+49%) over a fair baseline — with the three hypotheses compared head-to-head just below.',
+    seek: (c) => c.total - 1,
+  },
+  {
+    route: '/conference',
+    selector: '[data-tour="conference-prs"]',
+    title: 'Real pull requests',
+    body: 'Two real PRs opened on your actual repo, plus a written report. Watson ships working code, not just advice.',
     seek: (c) => c.total - 1,
   },
   {
@@ -110,6 +117,8 @@ const STEPS: TourStep[] = [
     seek: (c) => c.total - 1,
   },
 ];
+
+const LIVE_APP_URL = 'https://watson-web.frankkevinwalsh.workers.dev';
 
 const PAD = 6;
 const CARD_W = 340;
@@ -258,12 +267,11 @@ export function Tour({
     if (cardRef.current) setCardH(cardRef.current.offsetHeight);
   }, [i, rect]);
 
-  // Keyboard: Esc finishes, arrows step.
+  // Keyboard: arrows step. No Esc-to-dismiss — the judge goes through the tour.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') finish();
-      else if (e.key === 'ArrowRight') setI((n) => Math.min(n + 1, STEPS.length - 1));
+      if (e.key === 'ArrowRight') setI((n) => Math.min(n + 1, STEPS.length - 1));
       else if (e.key === 'ArrowLeft') setI((n) => Math.max(n - 1, 0));
     };
     window.addEventListener('keydown', onKey);
@@ -346,12 +354,6 @@ export function Tour({
           <span className="tnum text-[0.6875rem] font-semibold text-ink-3">
             {i + 1} / {STEPS.length}
           </span>
-          <button
-            onClick={finish}
-            className="focus-ring text-[0.6875rem] font-medium text-ink-3 hover:text-ink"
-          >
-            Skip tour
-          </button>
         </div>
         <h3 className="text-[0.9375rem] font-semibold tracking-tight text-ink">{step.title}</h3>
         <p className="mt-1 text-[0.8125rem] leading-relaxed text-ink-2">{step.body}</p>
@@ -378,12 +380,24 @@ export function Tour({
           >
             Back
           </button>
-          <button
-            onClick={next}
-            className="focus-ring rounded-lg bg-accent px-4 py-1.5 text-[0.8125rem] font-semibold text-white transition-opacity hover:opacity-90"
-          >
-            {atEnd ? 'Start exploring' : 'Next →'}
-          </button>
+          {atEnd ? (
+            <a
+              href={LIVE_APP_URL}
+              target="_blank"
+              rel="noreferrer"
+              onClick={onClose}
+              className="focus-ring rounded-lg bg-accent px-4 py-1.5 text-[0.8125rem] font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              Run a real one →
+            </a>
+          ) : (
+            <button
+              onClick={next}
+              className="focus-ring rounded-lg bg-accent px-4 py-1.5 text-[0.8125rem] font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              Next →
+            </button>
+          )}
         </div>
       </div>
     </div>
