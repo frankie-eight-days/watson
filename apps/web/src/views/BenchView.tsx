@@ -166,24 +166,24 @@ export function BenchView() {
         <label htmlFor="repo-url" className="eyebrow mb-1.5 block">
           Target repository
         </label>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-          <input
-            id="repo-url"
-            value={repoUrl}
-            onChange={(e) => {
-              setRepoEdited(true);
-              setRepoUrl(e.target.value);
-            }}
-            disabled={running}
-            spellCheck={false}
-            autoComplete="off"
-            placeholder="https://github.com/owner/repo"
-            className="focus-ring min-w-0 flex-1 rounded-lg border border-hairline bg-surface-2 px-3.5 py-2.5 font-mono text-[0.875rem] tabular-nums tracking-tight text-ink placeholder:text-ink-3 disabled:opacity-50"
-          />
+        <input
+          id="repo-url"
+          value={repoUrl}
+          onChange={(e) => {
+            setRepoEdited(true);
+            setRepoUrl(e.target.value);
+          }}
+          disabled={running}
+          spellCheck={false}
+          autoComplete="off"
+          placeholder="https://github.com/owner/repo"
+          className="focus-ring block w-full rounded-lg border border-hairline bg-surface-2 px-4 py-3 font-mono text-[0.9375rem] tabular-nums tracking-tight text-ink placeholder:text-ink-3 disabled:opacity-50"
+        />
+        <div className="mt-2 flex justify-end">
           <button
             onClick={doCommence}
             disabled={!canCommence}
-            className={`focus-ring flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold tracking-wide transition-opacity ${
+            className={`focus-ring flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-6 py-2.5 text-sm font-semibold tracking-wide transition-opacity ${
               running
                 ? 'cursor-not-allowed bg-surface-2 text-ink-3'
                 : 'bg-accent text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40'
