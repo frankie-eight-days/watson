@@ -61,7 +61,9 @@ function NoEngagement({ onShowDemo }: { onShowDemo: () => void }) {
 }
 
 export function Shell() {
-  const [consoleOpen, setConsoleOpen] = useState(true);
+  // Start collapsed so the canvas is clean on arrival; the user (or clicking an
+  // agent via focusAgent) expands it.
+  const [consoleOpen, setConsoleOpen] = useState(false);
   // Demo mirror only: show the explainer on first visit, re-openable from "?".
   const [welcomeOpen, setWelcomeOpen] = useState(() => DEMO_LOCKED && !welcomeSeen());
   const { selectAgent } = useSelection();
