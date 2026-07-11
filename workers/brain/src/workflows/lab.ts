@@ -333,9 +333,11 @@ async function runPitchSafe(
     // 2. author the real change with terra (full new file content)
     const authored = await think(ctx, emitter, args.model, {
       modelId: ctx.models.terra,
-      effort: 'high',
+      // medium (not high) effort: high reasoning burns the completion-token
+      // budget and truncates the file output. Generous cap so the full file fits.
+      effort: 'medium',
       title: 'author code',
-      maxTokens: 6000,
+      maxTokens: 16000,
       silent: true,
       system:
         'You are a senior TypeScript engineer implementing ONE surgical, minimal, build-safe change to a Vending-Bench agent fork. You will be given the FULL current file and a hypothesis. Rewrite the file to implement the hypothesis while preserving everything else EXACTLY (imports, exports, unrelated functions, types). Keep it compilable — no placeholders, no TODOs, no removed exports. Output ONLY the complete new file content: no markdown fences, no commentary.',
@@ -343,7 +345,9 @@ async function runPitchSafe(
       fallback: '',
     });
     const newContent = stripFence(authored.text);
-    if (newContent.length < Math.min(200, fetched.text.length * 0.4)) throw new Error('authored content looked truncated/invalid');
+    // A valid full-file rewrite is ~the same size as the original. Anything under
+    // half the original length is a truncated/invalid author pass.
+    if (newContent.length < Math.max(200, fetched.text.length * 0.5)) throw new Error(`authored content looked truncated/invalid (${newContent.length} of ${fetched.text.length} chars)`);
 
     const snippet = keyDiffSnippet(fetched.text, newContent);
     await ctx.emit(emitter, 'thought', { text: `Authored a ${role} change to ${targetFile} (${newContent.length} chars). Committing to a branch and building in the sandbox.`, title: 'plan' }, { model: ctx.models.terra });
