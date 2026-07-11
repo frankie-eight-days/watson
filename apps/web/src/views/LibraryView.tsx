@@ -1,13 +1,19 @@
 /**
  * Library — the paper pipeline as a Kanban. Each paper's stage is INFERRED FROM
- * THE EVENT STREAM (which agent/tool touched it), so cards flow left→right across
- * columns as the replay cursor advances. Relevance scores come from the screener's
- * metric events.
+ * THE EVENT STREAM (which agent/tool/metric touched it), so cards flow left→right
+ * across columns as the replay cursor advances.
+ *
+ * Two event vocabularies are supported side by side (replay-safe, generic):
+ *   • Legacy (mock fixture): agent ids w_paper_scout/w_screener/w_deep_reader,
+ *     metric 'relevance_score', pitch bodies referencing paper_\d+ refIds.
+ *   • Real run: paper artifacts from any agent, metric name 'relevance' whose
+ *     seriesLabel is the paper refId, and pitches whose payload.url matches a
+ *     paper url. Pitches themselves surface as cards in the Pitched column.
  */
 import { useMemo } from 'react';
 import { isEventType } from '@watson/shared';
 import { useEngagementEvents } from '@/state/hooks';
-import { type ArtifactEvent } from '@/lib/fold';
+import { type ArtifactEvent, artifactsOfKind, latestArtifactByRef } from '@/lib/fold';
 import { Canvas, SectionHeader, TreeLayout } from './_layout';
 import { KanbanBoard, type KanbanStage } from '@/components/KanbanBoard';
 import { EventCard } from '@/components/EventCard';
@@ -38,10 +44,20 @@ interface PaperCard {
   rep: ArtifactEvent; // representative artifact event for keying
 }
 
+/** Normalize a url for equality: trim, drop trailing slash, http==https, lowercase. */
+function normUrl(u?: string): string {
+  if (!u) return '';
+  return u
+    .trim()
+    .replace(/^http:\/\//i, 'https://')
+    .replace(/\/+$/, '')
+    .toLowerCase();
+}
+
 export function LibraryView() {
   const events = useEngagementEvents();
 
-  const papers = useMemo(() => {
+  const { papers, pitches, byRep, pitchSeqs } = useMemo(() => {
     const map = new Map<string, PaperCard>();
     let lastRelevance: number | undefined;
 
@@ -59,36 +75,63 @@ export function LibraryView() {
     };
 
     for (const e of events) {
+      // Relevance — legacy scalar carried into the next screener bump …
       if (isEventType(e, 'metric') && e.payload.name === 'relevance_score') {
         lastRelevance = e.payload.value;
         continue;
       }
+      // … and the real-run form: seriesLabel IS the paper refId.
+      if (isEventType(e, 'metric') && e.payload.name === 'relevance' && e.payload.seriesLabel) {
+        bump(e.payload.seriesLabel, 'screened', { score: e.payload.value });
+        continue;
+      }
+      // Legacy citation tool.
       if (isEventType(e, 'tool_call') && e.agentId === 'w_citation') {
         const pid = (e.payload.args as { paperId?: string }).paperId;
         if (pid) bump(pid, 'cited');
         continue;
       }
-      if (isEventType(e, 'artifact') && e.payload.refId?.startsWith('paper')) {
+      // Paper artifact — ANY agent, ANY refId bumps to discovered (generic);
+      // legacy agent ids then layer screened / distilled on top.
+      if (isEventType(e, 'artifact') && e.payload.kind === 'paper' && e.payload.refId) {
         const ref = e.payload.refId;
-        if (e.agentId === 'w_paper_scout') {
-          bump(ref, 'discovered', { title: e.payload.title, url: e.payload.url, rep: e }, e);
-        } else if (e.agentId === 'w_screener') {
-          bump(ref, 'screened', { score: lastRelevance, rep: e }, e);
-        } else if (e.agentId === 'w_deep_reader') {
-          bump(ref, 'distilled', { rep: e }, e);
-        }
+        bump(ref, 'discovered', { title: e.payload.title, url: e.payload.url, rep: e }, e);
+        if (e.agentId === 'w_screener') bump(ref, 'screened', { score: lastRelevance });
+        else if (e.agentId === 'w_deep_reader') bump(ref, 'distilled');
         continue;
       }
-      if (isEventType(e, 'artifact') && e.payload.kind === 'pitch') {
-        const body = `${e.payload.title} ${e.payload.body ?? ''}`;
-        for (const m of body.matchAll(/paper_\d+/g)) bump(m[0], 'pitched');
-      }
     }
-    return [...map.values()];
+
+    // Pitches: collapse to latest per refId, and use them to cite papers.
+    const pitchList = latestArtifactByRef(artifactsOfKind(events, 'pitch'));
+    const paperByUrl = new Map<string, string>();
+    for (const p of map.values()) {
+      const key = normUrl(p.url);
+      if (key) paperByUrl.set(key, p.refId);
+    }
+    for (const e of pitchList) {
+      // Legacy: body references paper_\d+ → those papers reach 'pitched'.
+      const body = `${e.payload.title} ${e.payload.body ?? ''}`;
+      for (const m of body.matchAll(/paper_\d+/g)) bump(m[0], 'pitched');
+      // Real run: pitch url matches a paper's url → that paper is 'cited'.
+      const cited = paperByUrl.get(normUrl(e.payload.url));
+      if (cited) bump(cited, 'cited');
+    }
+
+    const papersOut = [...map.values()];
+    return {
+      papers: papersOut,
+      pitches: pitchList,
+      byRep: new Map(papersOut.map((p) => [p.rep?.seq, p])),
+      pitchSeqs: new Set(pitchList.map((p) => p.seq)),
+    };
   }, [events]);
 
-  const items = papers.map((p) => p.rep).filter(Boolean);
-  const byRep = new Map(papers.map((p) => [p.rep?.seq, p]));
+  const items = [...papers.map((p) => p.rep).filter(Boolean), ...pitches];
+
+  const countLabel = pitches.length
+    ? `${papers.length} papers · ${pitches.length} pitches`
+    : `${papers.length} papers tracked`;
 
   return (
     <TreeLayout>
@@ -97,21 +140,31 @@ export function LibraryView() {
           <SectionHeader
             eyebrow="Paper pipeline"
             title="The Library"
-            right={<span className="tnum text-xs text-ink-3">{papers.length} papers tracked</span>}
+            right={<span className="tnum text-xs text-ink-3">{countLabel}</span>}
           />
         </div>
         <div data-tour="library" className="min-h-0 flex-1 px-6 pb-6">
-          {papers.length === 0 ? (
+          {papers.length === 0 && pitches.length === 0 ? (
             <Canvas>
-              <div className="text-sm text-ink-3">The paper scout is searching Linkup…</div>
+              <div className="text-sm text-ink-3">The paper scouts are searching Linkup + Exa…</div>
             </Canvas>
           ) : (
             <KanbanBoard
               items={items}
               stages={STAGES}
               stageAccent={(s) => STAGE_ACCENT[s]}
-              stageOf={(a) => byRep.get(a.seq)?.stage ?? 'discovered'}
+              stageOf={(a) => (pitchSeqs.has(a.seq) ? 'pitched' : byRep.get(a.seq)?.stage ?? 'discovered')}
               renderCard={(a) => {
+                // Pitch card — its own accent + opens the source paper.
+                if (pitchSeqs.has(a.seq)) {
+                  return (
+                    <EventCard
+                      artifact={a}
+                      dense
+                      accent={STAGE_ACCENT.pitched}
+                    />
+                  );
+                }
                 const p = byRep.get(a.seq)!;
                 return (
                   <EventCard

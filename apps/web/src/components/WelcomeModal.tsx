@@ -60,7 +60,7 @@ export function WelcomeModal({
           <h2 className="mt-3 text-lg font-semibold tracking-tight text-ink">You're watching a replay</h2>
           <p className="mt-1.5 text-[0.875rem] leading-relaxed text-ink-2">
             A real engagement Watson executed end to end — it ingested a repo, read the latest papers,
-            ran real benchmarks in cloud sandboxes, and opened a real PR.
+            ran real benchmarks in cloud sandboxes, and shipped two real PRs.
           </p>
 
           <div className="mt-4 rounded-xl bg-surface-2 px-4 py-3">

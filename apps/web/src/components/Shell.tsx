@@ -86,7 +86,9 @@ export function Shell() {
       </main>
       <ConsoleDrawer open={consoleOpen} onToggle={() => setConsoleOpen((o) => !o)} />
       <ReplayBar />
-      {DEMO_LOCKED && <Tour open={tourOpen} onClose={() => setTourOpen(false)} />}
+      {DEMO_LOCKED && (
+        <Tour open={tourOpen} onClose={() => setTourOpen(false)} focusAgent={focusAgent} />
+      )}
     </div>
   );
 }

@@ -1,9 +1,12 @@
 /**
- * loadFixture.mjs — load fixtures/mock-engagement.jsonl into the dev deployment.
+ * loadFixture.mjs — load a JSON-lines fixture into the dev deployment.
  *
- * Usage (from watson/):  node scripts/loadFixture.mjs
+ * Usage (from watson/):  node scripts/loadFixture.mjs [fixturePath]
+ *   fixturePath defaults to fixtures/mock-engagement.jsonl; it may be given
+ *   relative to the repo root or as an absolute path (e.g. fixtures/demo-run.jsonl).
  * Reads CONVEX_URL from the env or .env.local. Idempotent: clears the fixture
- * engagement first, then ingests every event preserving its embedded seq.
+ * engagement (derived from the first event's engagementId) first, then ingests
+ * every event preserving its embedded seq.
  */
 
 import { readFileSync } from 'node:fs';
@@ -30,7 +33,8 @@ function loadEnv() {
 const url = loadEnv();
 const client = new ConvexHttpClient(url);
 
-const jsonlPath = resolve(root, 'fixtures', 'mock-engagement.jsonl');
+const fixtureArg = process.argv[2] ?? 'fixtures/mock-engagement.jsonl';
+const jsonlPath = resolve(root, fixtureArg);
 const events = readFileSync(jsonlPath, 'utf8')
   .trim()
   .split('\n')

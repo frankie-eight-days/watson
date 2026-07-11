@@ -269,6 +269,7 @@ export function ConsoleDrawer({
 
   return (
     <div
+      data-tour="console"
       className="flex flex-col border-t border-hairline bg-surface"
       style={{ boxShadow: open ? 'var(--shadow-drawer)' : 'none' }}
     >

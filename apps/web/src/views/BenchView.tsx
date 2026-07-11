@@ -223,7 +223,7 @@ export function BenchView() {
       </div>
 
       {/* terminal */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-hairline bg-surface shadow-card">
+      <div data-tour="bench-terminal" className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-hairline bg-surface shadow-card">
         {/* title bar */}
         <div className="flex items-center gap-2 border-b border-hairline bg-surface-2 px-3.5 py-2">
           <span className="flex gap-1.5">

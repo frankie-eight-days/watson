@@ -10,6 +10,7 @@
  */
 import { useMemo } from 'react';
 import { useEngagementEvents } from '@/state/hooks';
+import { latestMetric } from '@/lib/fold';
 import { foldLab, type ExperimentView, type ExperimentStatus } from '@/lib/experiments';
 import { candidateColor } from '@/lib/vizColors';
 import { Canvas, SectionHeader, TreeLayout } from './_layout';
@@ -33,6 +34,11 @@ function fmtVal(v: number | undefined, unit?: string): string {
   if (v == null) return '—';
   if (unit === 'usd') return formatUsd(v);
   return `${formatNum(v, v % 1 ? 1 : 0)}${unit ? ` ${unit}` : ''}`;
+}
+
+/** Integer-percent delta for headline figures (truncated, signed). */
+export function fmtPctInt(p: number): string {
+  return `${p >= 0 ? '+' : ''}${Math.trunc(p)}%`;
 }
 
 function StatusBadge({ status, reason }: { status: ExperimentStatus; reason?: string }) {
@@ -165,6 +171,41 @@ export function LabView() {
     return deltas.length ? Math.max(...deltas) : undefined;
   }, [lab.experiments]);
 
+  // Headline is derived from THIS RUN (foldLab): the in-run baseline vs the best
+  // candidate's latest value + winner name. The aggregated baseline_mean /
+  // winner_mean scalars, when present, only power the honest variance caption
+  // (this benchmark is high-variance). Absent both the run values and the means
+  // (mock fixture / mid-replay), we fall back to the baseline-latest + best-delta.
+  const headline = useMemo(() => {
+    const baseline = lab.baselineValue;
+    const winner = lab.experiments.reduce<ExperimentView | undefined>(
+      (best, e) =>
+        e.status !== 'rejected' &&
+        e.candidateValue != null &&
+        (best?.candidateValue == null || e.candidateValue > best.candidateValue)
+          ? e
+          : best,
+      undefined,
+    );
+    if (baseline == null || winner?.candidateValue == null) return null;
+    return {
+      baseline,
+      winnerValue: winner.candidateValue,
+      deltaPct: ((winner.candidateValue - baseline) / Math.abs(baseline)) * 100,
+      winnerName: winner.title,
+    };
+  }, [lab.baselineValue, lab.experiments]);
+
+  const variance = useMemo(() => {
+    const b = latestMetric(events, 'baseline_mean');
+    const w = latestMetric(events, 'winner_mean');
+    if (!b || !w || b.value === 0 || headline == null || headline.baseline === 0) return null;
+    return {
+      meanLo: Math.trunc(((w.value - b.value) / Math.abs(b.value)) * 100),
+      meanHi: Math.trunc(((w.value - headline.baseline) / Math.abs(headline.baseline)) * 100),
+    };
+  }, [events, headline]);
+
   const hasChart = lab.chartSeries.length > 0;
 
   return (
@@ -184,24 +225,61 @@ export function LabView() {
 
         {/* combined chart — the money shot */}
         <div data-tour="lab" className="hairline-card mb-5 p-5">
-          <div className="mb-2 flex flex-wrap items-end gap-x-8 gap-y-2">
-            <div>
-              <Eyebrow>Baseline reference</Eyebrow>
-              <div className="tnum text-2xl font-semibold text-ink">{fmtVal(lab.baselineValue, lab.unit)}</div>
-            </div>
-            {bestDelta != null && (
-              <div>
-                <Eyebrow>Best candidate</Eyebrow>
-                <div
-                  className="tnum text-2xl font-semibold"
-                  style={{ color: bestDelta >= 0 ? 'var(--good)' : 'var(--critical)' }}
-                >
-                  {bestDelta >= 0 ? '+' : ''}
-                  {formatNum(bestDelta, 1)}%
+          {headline ? (
+            <div className="mb-3">
+              <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+                <div>
+                  <Eyebrow>Baseline</Eyebrow>
+                  <div className="tnum text-2xl font-semibold text-ink-2">{fmtVal(headline.baseline, lab.unit)}</div>
                 </div>
+                <div className="pb-1 text-xl text-ink-3">→</div>
+                <div>
+                  <Eyebrow>Best candidate</Eyebrow>
+                  <div className="tnum text-2xl font-semibold" style={{ color: 'var(--good)' }}>
+                    {fmtVal(headline.winnerValue, lab.unit)}
+                  </div>
+                </div>
+                <span
+                  className="tnum mb-1 rounded-pill px-2.5 py-1 text-sm font-semibold"
+                  style={{
+                    color: headline.deltaPct >= 0 ? 'var(--good)' : 'var(--critical)',
+                    background: headline.deltaPct >= 0 ? 'var(--good-soft)' : 'var(--critical-soft)',
+                  }}
+                >
+                  {fmtPctInt(headline.deltaPct)}
+                </span>
               </div>
-            )}
-          </div>
+              {headline.winnerName && (
+                <div className="mt-1.5 truncate text-[0.8125rem] text-ink-2">
+                  <span className="font-medium text-ink">Winner:</span> {headline.winnerName}
+                </div>
+              )}
+              {variance && (
+                <div className="tnum mt-1 text-[0.6875rem] text-ink-3">
+                  n=3 mean ~+{variance.meanLo}–{variance.meanHi}% · this run {fmtPctInt(headline.deltaPct)}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="mb-2 flex flex-wrap items-end gap-x-8 gap-y-2">
+              <div>
+                <Eyebrow>Baseline reference</Eyebrow>
+                <div className="tnum text-2xl font-semibold text-ink">{fmtVal(lab.baselineValue, lab.unit)}</div>
+              </div>
+              {bestDelta != null && (
+                <div>
+                  <Eyebrow>Best candidate</Eyebrow>
+                  <div
+                    className="tnum text-2xl font-semibold"
+                    style={{ color: bestDelta >= 0 ? 'var(--good)' : 'var(--critical)' }}
+                  >
+                    {bestDelta >= 0 ? '+' : ''}
+                    {formatNum(bestDelta, 1)}%
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {hasChart ? (
             <MetricChart
               series={lab.chartSeries}

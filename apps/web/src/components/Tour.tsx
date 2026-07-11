@@ -2,56 +2,112 @@
  * Tour — a vanilla-React guided spotlight (no tour libraries; CSP-safe). It dims
  * the page except a highlighted target (SVG-mask cutout + accent ring), shows a
  * coach-card near it, and AUTO-NAVIGATES between views so a judge sees every
- * surface. On start it seeks the replay to the end so each view is fully
- * populated. DEMO_LOCKED-only; makes no network calls.
+ * surface.
+ *
+ * The key move: each step SCRUBS the shared replay cursor to a point where its
+ * phase is ACTIVELY IN FLIGHT — so the judge watches it happening, not a finished
+ * view. Target positions are computed GENERICALLY from the event stream (hermes
+ * `status` events whose detail is `phase: <name>`), so they survive fixture swaps.
+ * When no phase markers exist we fall back to proportional fractions of the run.
+ * DEMO_LOCKED-only; makes no network calls.
  */
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useReplay } from '@/state/hooks';
+import type { WatsonEvent } from '@watson/shared';
+import { useEngagement, useReplay } from '@/state/hooks';
+
+interface SeekCtx {
+  total: number;
+  /** Array index of a phase's first hermes `status` marker, or undefined. */
+  phaseStart: (name: string) => number | undefined;
+  /** Index at `frac` through a phase's [start, next-start) range, or undefined. */
+  phaseFrac: (name: string, frac: number) => number | undefined;
+  /** Proportional index of the whole run (fixtures with no phase markers). */
+  fallback: (frac: number) => number;
+}
+
+interface EffectCtx {
+  allEvents: WatsonEvent[];
+  targetIndex: number;
+  focusAgent?: (agentId: string) => void;
+}
 
 interface TourStep {
   route: string;
   selector: string;
   title: string;
   body: string;
+  /** Where to scrub the cursor for this step (an index into the event array). */
+  seek: (ctx: SeekCtx) => number;
+  /** Optional side effect after the seek (e.g. select an agent + open console). */
+  effect?: (ctx: EffectCtx) => void;
 }
 
 const STEPS: TourStep[] = [
   {
     route: '/bench',
     selector: '[data-tour="bench"]',
-    title: 'The Bench',
-    body: 'Brief Hermes, the agency’s president. Point it at your repo and say the word.',
+    title: 'Point Watson at a repo',
+    body: 'Every engagement starts here — the Target Repository field is where you hand Hermes, the agency’s president, a codebase to improve.',
+    seek: (c) => (c.phaseStart('watercooler') ?? c.fallback(0.03)) + 3,
+  },
+  {
+    route: '/bench',
+    selector: '[data-tour="bench-terminal"]',
+    title: 'The Hermes terminal',
+    body: 'You talk to Hermes here to scope the brief. During a run this terminal streams the president’s working live — every spawn, thought and tool call.',
+    seek: (c) => c.phaseFrac('watercooler', 0.4) ?? c.fallback(0.12),
   },
   {
     route: '/watercooler',
     selector: '[data-tour="watercooler"]',
     title: 'The Watercooler',
-    body: 'Hermes dispatches a team to ingest your repo and find the real weakness.',
+    body: 'The crew ingests the repo and converges on a dossier that names the exact weakness worth attacking.',
+    seek: (c) => c.phaseFrac('watercooler', 0.65) ?? c.fallback(0.2),
   },
   {
     route: '/library',
     selector: '[data-tour="library"]',
     title: 'The Library',
-    body: 'It reads the latest papers across the web + arXiv (Linkup + Exa) and ranks concrete pitches.',
+    body: 'Watson reads the latest papers across the web and arXiv, grades their relevance live, and distills them into three concrete pitches.',
+    seek: (c) => c.phaseFrac('library', 0.65) ?? c.fallback(0.42),
   },
   {
     route: '/lab',
     selector: '[data-tour="lab"]',
     title: 'The Lab',
-    body: 'It writes real code and runs real 30-day benchmarks in cloud sandboxes. This is the result.',
+    body: 'It writes real code and runs real 30-day benchmarks in cloud sandboxes — watch the chart race the baseline against each candidate, day by day.',
+    seek: (c) => c.phaseFrac('lab', 0.65) ?? c.fallback(0.72),
+  },
+  {
+    route: '/lab',
+    selector: '[data-tour="console"]',
+    title: 'Steer any agent',
+    body: 'This isn’t just a replay surface. In a live run you click any agent in the org chart, inspect its console, and type here to redirect its plan mid-run.',
+    seek: (c) => c.phaseFrac('lab', 0.65) ?? c.fallback(0.72),
+    effect: ({ allEvents, targetIndex, focusAgent }) => {
+      for (let k = Math.min(targetIndex, allEvents.length - 1); k >= 0; k--) {
+        const id = allEvents[k]?.agentId;
+        if (id && id !== 'hermes') {
+          focusAgent?.(id);
+          break;
+        }
+      }
+    },
   },
   {
     route: '/conference',
     selector: '[data-tour="conference"]',
-    title: 'The Conference',
-    body: 'It ships a real PR to your repo, plus a written report and a podcast.',
+    title: 'The results',
+    body: 'The payoff — a real lift over a fair baseline (with the variance disclosed), two real PRs opened on the fork, and the written report.',
+    seek: (c) => c.total - 1,
   },
   {
     route: '/lab',
     selector: '[data-tour="replay"]',
     title: 'Replay the whole run',
-    body: 'Scrub the entire recorded engagement here anytime.',
+    body: 'Scrub the entire recorded engagement here anytime, or replay it from the top.',
+    seek: (c) => c.total - 1,
   },
 ];
 
@@ -69,10 +125,19 @@ function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }
 
-export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function Tour({
+  open,
+  onClose,
+  focusAgent,
+}: {
+  open: boolean;
+  onClose: () => void;
+  focusAgent?: (agentId: string) => void;
+}) {
   const [i, setI] = useState(0);
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const { allEvents } = useEngagement();
   const r = useReplay();
   const [rect, setRect] = useState<Rect | null>(null);
   const [vp, setVp] = useState({ w: window.innerWidth, h: window.innerHeight });
@@ -82,17 +147,64 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
   const step = STEPS[i];
   const atEnd = i === STEPS.length - 1;
 
+  // Phase markers → a generic seek context (survives fixture swaps).
+  const seekCtx = useMemo<SeekCtx>(() => {
+    const total = allEvents.length;
+    const phases: { name: string; index: number }[] = [];
+    allEvents.forEach((e, idx) => {
+      if (e.type === 'status' && e.agentId === 'hermes') {
+        const m = /^phase:\s*(\w+)/.exec((e.payload as { detail?: string }).detail ?? '');
+        if (m) phases.push({ name: m[1], index: idx });
+      }
+    });
+    const startOf = (name: string) => phases.find((p) => p.name === name)?.index;
+    const nextOf = (name: string) => {
+      const k = phases.findIndex((p) => p.name === name);
+      return k < 0 ? undefined : phases[k + 1]?.index ?? Math.max(0, total - 1);
+    };
+    return {
+      total,
+      phaseStart: startOf,
+      phaseFrac: (name, frac) => {
+        const s = startOf(name);
+        if (s == null) return undefined;
+        const n = nextOf(name) ?? total - 1;
+        return Math.round(s + frac * (n - s));
+      },
+      fallback: (frac) => Math.round(frac * Math.max(0, total - 1)),
+    };
+  }, [allEvents]);
+
+  const targetIndex = useMemo(() => {
+    if (seekCtx.total === 0) return 0;
+    return clamp(Math.round(step.seek(seekCtx)), 0, seekCtx.total - 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i, seekCtx]);
+
+  // Close/finish → land the judge on the fully populated end state.
+  const finish = () => {
+    if (r.total > 0) r.seekIndex(r.total - 1);
+    onClose();
+  };
+
   // Reset to step 0 each time the tour opens.
   useEffect(() => {
     if (open) setI(0);
   }, [open]);
 
-  // Seek replay to the end so every view is fully populated as the judge is
-  // guided through it (re-runs once the fixture finishes loading).
+  // Scrub the shared cursor to this step's target (re-runs on step change AND
+  // once the fixture finishes loading — total flips from 0 to N).
   useEffect(() => {
-    if (open && r.total > 0) r.seekIndex(r.total - 1);
+    if (open && r.total > 0) r.seekIndex(targetIndex);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, r.total]);
+  }, [open, i, targetIndex, r.total]);
+
+  // Run this step's side effect (e.g. focus a live agent + open its console).
+  useEffect(() => {
+    if (!open || r.total === 0) return;
+    step.effect?.({ allEvents, targetIndex, focusAgent });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, i, targetIndex, r.total]);
 
   // Navigate to the step's view.
   useEffect(() => {
@@ -146,17 +258,18 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
     if (cardRef.current) setCardH(cardRef.current.offsetHeight);
   }, [i, rect]);
 
-  // Keyboard: Esc skips, arrows step.
+  // Keyboard: Esc finishes, arrows step.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') finish();
       else if (e.key === 'ArrowRight') setI((n) => Math.min(n + 1, STEPS.length - 1));
       else if (e.key === 'ArrowLeft') setI((n) => Math.max(n - 1, 0));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   if (!open) return null;
 
@@ -183,7 +296,7 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
     cardLeft = vp.w / 2 - CARD_W / 2;
   }
 
-  const next = () => (atEnd ? onClose() : setI((n) => n + 1));
+  const next = () => (atEnd ? finish() : setI((n) => n + 1));
   const back = () => setI((n) => Math.max(0, n - 1));
 
   return (
@@ -234,7 +347,7 @@ export function Tour({ open, onClose }: { open: boolean; onClose: () => void }) 
             {i + 1} / {STEPS.length}
           </span>
           <button
-            onClick={onClose}
+            onClick={finish}
             className="focus-ring text-[0.6875rem] font-medium text-ink-3 hover:text-ink"
           >
             Skip tour
