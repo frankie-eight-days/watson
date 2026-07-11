@@ -21,10 +21,10 @@ When the last box ticks, Frank tells the architect session "run checkpoint 1". D
 - [ ] Baseline 3x recorded in fork's baselines.json
 
 ### Tab D — UI Shell
-- [ ] Skeleton deployed to Cloudflare (URL: )
-- [ ] Shell + AgentTree + ConsoleDrawer render the fixture
-- [ ] ReplayBar scrubs the fixture
-- [ ] FORKED into view tabs D1/D2/D3
+- [x] Skeleton deployed to Cloudflare (URL: https://watson-web.frankkevinwalsh.workers.dev) — Worker + static assets, SPA fallback, all 5 routes 200
+- [x] Shell + AgentTree + ConsoleDrawer render the fixture — folds events→agents/feed; per-agent cost/tokens; typed console feed
+- [x] ReplayBar scrubs the fixture — shared cursor; live-stream and replay use one render path (event-stream-only)
+- [ ] FORKED into view tabs D1/D2/D3 — next; view skeletons wired, canvases stubbed with real fixture data (Lab money-shot 23→41d live)
 
 ## Checkpoint 2 → full end-to-end run #1
 - [ ] Bench chat → COMMENCE kicks a real engagement (B)
