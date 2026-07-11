@@ -22,6 +22,20 @@ export type EventSourceKind = 'fixture' | 'convex';
  */
 export const DEMO_LOCKED: boolean = import.meta.env.VITE_DEMO_LOCKED === '1';
 
+/**
+ * AUTO_TOUR — captured at module load (before the router runs any redirect that
+ * would drop the query), so the marketing-site CTA `?tour=1` reliably auto-starts
+ * the guided tour on the demo mirror.
+ */
+export const AUTO_TOUR: boolean = (() => {
+  if (!DEMO_LOCKED || typeof window === 'undefined') return false;
+  try {
+    return new URLSearchParams(window.location.search).get('tour') === '1';
+  } catch {
+    return false;
+  }
+})();
+
 /** The Convex deployment URL, read from Vite env when running live. */
 export const CONVEX_URL: string | undefined = import.meta.env.VITE_CONVEX_URL;
 

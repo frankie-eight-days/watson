@@ -25,6 +25,7 @@ export function WatercoolerView() {
       <Canvas>
         <SectionHeader eyebrow="Repo ingestion" title="Reading the harness" />
 
+        <div data-tour="watercooler">
         {dossier && (
           <div className="mb-6">
             <div className="hairline-card animate-fade-slide-in overflow-hidden">
@@ -50,6 +51,7 @@ export function WatercoolerView() {
             ))}
           </div>
         )}
+        </div>
       </Canvas>
     </TreeLayout>
   );

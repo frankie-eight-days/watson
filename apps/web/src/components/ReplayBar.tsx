@@ -64,7 +64,7 @@ export function ReplayBar() {
   const stateColor = live ? 'var(--good)' : r.atEnd ? 'var(--ink-3)' : 'var(--warning)';
 
   return (
-    <div className="flex items-center gap-3 border-t border-hairline bg-surface px-4 py-2.5">
+    <div data-tour="replay" className="flex items-center gap-3 border-t border-hairline bg-surface px-4 py-2.5">
       {/* demo-replay toggle (controls demo-engagement visibility; scrubber below
           works on ANY engagement). Hidden in the locked demo mirror — there the
           whole build is the recorded run, so a toggle would be meaningless. */}

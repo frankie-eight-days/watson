@@ -11,12 +11,13 @@ import { useState } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { useSelection } from '@/state/hooks';
 import { useAppMode } from '@/state/switcher';
-import { DEMO_LOCKED } from '@/lib/config';
+import { DEMO_LOCKED, AUTO_TOUR } from '@/lib/config';
 import { TopBar } from './TopBar';
 import { AlertBanner } from './AlertBanner';
 import { ConsoleDrawer } from './ConsoleDrawer';
 import { ReplayBar } from './ReplayBar';
 import { WelcomeModal } from './WelcomeModal';
+import { Tour } from './Tour';
 
 const WELCOME_KEY = 'watson.demo.welcomeSeen';
 
@@ -64,8 +65,10 @@ export function Shell() {
   // Start collapsed so the canvas is clean on arrival; the user (or clicking an
   // agent via focusAgent) expands it.
   const [consoleOpen, setConsoleOpen] = useState(false);
-  // Demo mirror only: show the explainer on first visit, re-openable from "?".
-  const [welcomeOpen, setWelcomeOpen] = useState(() => DEMO_LOCKED && !welcomeSeen());
+  // Demo mirror only: `?tour=1` jumps straight into the tour; otherwise show the
+  // explainer on first visit (re-openable from "?").
+  const [welcomeOpen, setWelcomeOpen] = useState(() => DEMO_LOCKED && !AUTO_TOUR && !welcomeSeen());
+  const [tourOpen, setTourOpen] = useState(() => AUTO_TOUR);
   const { selectAgent } = useSelection();
   const { hasEngagement, setShowDemo } = useAppMode();
 
@@ -74,13 +77,21 @@ export function Shell() {
     setConsoleOpen(true);
   };
 
-  const closeWelcome = () => {
-    setWelcomeOpen(false);
+  const markSeen = () => {
     try {
       localStorage.setItem(WELCOME_KEY, '1');
     } catch {
       /* ignore */
     }
+  };
+  const closeWelcome = () => {
+    setWelcomeOpen(false);
+    markSeen();
+  };
+  const startTour = () => {
+    setWelcomeOpen(false);
+    markSeen();
+    setTourOpen(true);
   };
 
   return (
@@ -89,10 +100,13 @@ export function Shell() {
       {hasEngagement && <AlertBanner onFocusAgent={focusAgent} />}
       <main className="relative min-h-0 flex-1 overflow-hidden">
         {hasEngagement ? <Outlet /> : <NoEngagement onShowDemo={() => setShowDemo(true)} />}
-        {DEMO_LOCKED && <WelcomeModal open={welcomeOpen} onClose={closeWelcome} />}
+        {DEMO_LOCKED && (
+          <WelcomeModal open={welcomeOpen} onClose={closeWelcome} onTakeTour={startTour} />
+        )}
       </main>
       <ConsoleDrawer open={consoleOpen} onToggle={() => setConsoleOpen((o) => !o)} />
       <ReplayBar />
+      {DEMO_LOCKED && <Tour open={tourOpen} onClose={() => setTourOpen(false)} />}
     </div>
   );
 }

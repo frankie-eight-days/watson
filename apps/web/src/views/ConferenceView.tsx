@@ -35,7 +35,7 @@ export function ConferenceView() {
       />
 
       {/* before / after strip */}
-      <div className="hairline-card mb-6 flex flex-wrap items-center gap-x-12 gap-y-4 p-5">
+      <div data-tour="conference" className="hairline-card mb-6 flex flex-wrap items-center gap-x-12 gap-y-4 p-5">
         <Stat label="Time horizon · before" value={<>{before != null ? formatNum(before, 1) : '—'}<span className="ml-1 text-base font-normal text-ink-3">d</span></>} />
         <div className="text-xl text-ink-3">→</div>
         <Stat

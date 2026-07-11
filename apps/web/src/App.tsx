@@ -5,6 +5,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { EngagementProvider } from '@/state/EngagementProvider';
 import { AppModeProvider, useAppMode } from '@/state/switcher';
+import { DEMO_LOCKED } from '@/lib/config';
 import { Shell } from '@/components/Shell';
 import { BenchView } from '@/views/BenchView';
 import { WatercoolerView } from '@/views/WatercoolerView';
@@ -19,13 +20,14 @@ function Routed() {
     <EngagementProvider key={engagementId} engagementId={engagementId}>
       <Routes>
         <Route element={<Shell />}>
-          <Route index element={<Navigate to="/lab" replace />} />
+          {/* The demo mirror lands on the Bench (the story starts there). */}
+          <Route index element={<Navigate to={DEMO_LOCKED ? '/bench' : '/lab'} replace />} />
           <Route path="/bench" element={<BenchView />} />
           <Route path="/watercooler" element={<WatercoolerView />} />
           <Route path="/library" element={<LibraryView />} />
           <Route path="/lab" element={<LabView />} />
           <Route path="/conference" element={<ConferenceView />} />
-          <Route path="*" element={<Navigate to="/lab" replace />} />
+          <Route path="*" element={<Navigate to={DEMO_LOCKED ? '/bench' : '/lab'} replace />} />
         </Route>
       </Routes>
     </EngagementProvider>

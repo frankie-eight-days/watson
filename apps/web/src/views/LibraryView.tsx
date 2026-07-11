@@ -100,7 +100,7 @@ export function LibraryView() {
             right={<span className="tnum text-xs text-ink-3">{papers.length} papers tracked</span>}
           />
         </div>
-        <div className="min-h-0 flex-1 px-6 pb-6">
+        <div data-tour="library" className="min-h-0 flex-1 px-6 pb-6">
           {papers.length === 0 ? (
             <Canvas>
               <div className="text-sm text-ink-3">The paper scout is searching Linkup…</div>

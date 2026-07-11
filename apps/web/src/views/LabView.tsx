@@ -183,7 +183,7 @@ export function LabView() {
         />
 
         {/* combined chart — the money shot */}
-        <div className="hairline-card mb-5 p-5">
+        <div data-tour="lab" className="hairline-card mb-5 p-5">
           <div className="mb-2 flex flex-wrap items-end gap-x-8 gap-y-2">
             <div>
               <Eyebrow>Baseline reference</Eyebrow>

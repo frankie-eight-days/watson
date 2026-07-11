@@ -142,7 +142,7 @@ export function BenchView() {
   return (
     <div className="flex h-full flex-col gap-3 p-4">
       {/* kickoff card */}
-      <div className="rounded-xl border border-hairline bg-surface p-4 shadow-card">
+      <div data-tour="bench" className="rounded-xl border border-hairline bg-surface p-4 shadow-card">
         {/* connection + engagement */}
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className="flex items-center gap-1.5" style={{ color: conn.color }}>

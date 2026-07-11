@@ -10,7 +10,15 @@ import { useEffect } from 'react';
 
 const LIVE_URL = 'https://watson-web.frankkevinwalsh.workers.dev';
 
-export function WelcomeModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function WelcomeModal({
+  open,
+  onClose,
+  onTakeTour,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onTakeTour: () => void;
+}) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -84,12 +92,20 @@ export function WelcomeModal({ open, onClose }: { open: boolean; onClose: () => 
             </a>
           </p>
 
-          <button
-            onClick={onClose}
-            className="focus-ring mt-5 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold tracking-wide text-white transition-opacity hover:opacity-90"
-          >
-            Watch the replay →
-          </button>
+          <div className="mt-5 flex flex-col gap-2">
+            <button
+              onClick={onTakeTour}
+              className="focus-ring w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold tracking-wide text-white transition-opacity hover:opacity-90"
+            >
+              Take the tour →
+            </button>
+            <button
+              onClick={onClose}
+              className="focus-ring w-full rounded-lg border border-hairline px-4 py-2 text-[0.8125rem] font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+            >
+              Skip, just replay
+            </button>
+          </div>
         </div>
       </div>
     </div>
