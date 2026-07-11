@@ -28,10 +28,10 @@ When the last box ticks, Frank tells the architect session "run checkpoint 1". D
 - [x] LIVE on Convex — swapped event-source shim to real Convex subscriptions (VITE_CONVEX_URL, watchQuery events:eventsWindow); engagement switcher lists real engagements:listEngagements; eng_vb_001 renders 175 events identically to fixture. Fixture insurance: append `?source=fixture` to the URL. https://watson-web.frankkevinwalsh.workers.dev
 
 ## Checkpoint 2 → full end-to-end run #1
-- [ ] Bench chat → COMMENCE kicks a real engagement (B)
-- [ ] Watercooler produces a real Repo Dossier for the fork (B)
-- [ ] Library runs real Linkup search → pitches (B)
-- [ ] One experiment executes in cloud sandbox with live metric events (B+C)
+- [x] Bench chat → COMMENCE kicks a real engagement (B) — WS chat (terra) + POST /commence both verified; e.g. eng_full_1783800205
+- [x] Watercooler produces a real Repo Dossier for the fork (B) — 2 luna scouts fetch real GitHub raw files → 4 card artifacts → terra dossier (kind=dossier) naming trimMessages() weakness
+- [x] Library runs real Linkup search → pitches (B) — live api.linkup.so query → luna grader relevance scores → 3 terra pitch artifacts (MemGPT/CoALA/Reflexion, real arXiv ids)
+- [ ] One experiment executes in cloud sandbox with live metric events (B+C) — lab calls sandbox /run for top pitch; dynamic role `memory-compaction-specialist` spawned mid-run; runner emits status/metric itself. First run hit container cold-start (handled: pending+retry); added transient retry, re-verifying warm run
 - [ ] One real PR opened on watson-vending-bench by the machinery (C)
 - [ ] All five views show the run live (D1/D2/D3 + A)
 
