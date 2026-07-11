@@ -8,8 +8,6 @@
  */
 import { useEffect } from 'react';
 
-const LIVE_URL = 'https://watson-web.frankkevinwalsh.workers.dev';
-
 export function WelcomeModal({
   open,
   onClose,
@@ -79,18 +77,6 @@ export function WelcomeModal({
             </svg>
             <span>Use the timeline at the bottom to scrub the run.</span>
           </div>
-
-          <p className="mt-3 text-[0.8125rem] text-ink-2">
-            Want to run your own? The live app is at{' '}
-            <a
-              href={LIVE_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="focus-ring font-medium text-accent-ink underline decoration-[color:var(--accent-ring)] underline-offset-2 hover:decoration-accent"
-            >
-              watson-web.frankkevinwalsh.workers.dev
-            </a>
-          </p>
 
           <div className="mt-5 flex flex-col gap-2">
             <button
