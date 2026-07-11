@@ -89,6 +89,31 @@ export async function think(
   }
 }
 
+/**
+ * Fire a Convex mutation over the standard function HTTP API
+ * (`${apiUrl}/api/mutation`, the *.cloud* URL). Best-effort: returns null on any
+ * error so a domain-projection write never breaks a run.
+ */
+export async function convexMutation(
+  apiUrl: string | undefined,
+  path: string,
+  args: Record<string, unknown>,
+): Promise<unknown | null> {
+  if (!apiUrl) return null;
+  try {
+    const res = await fetch(`${apiUrl.replace(/\/$/, '')}/api/mutation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, args, format: 'json' }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { status?: string; value?: unknown };
+    return data.status === 'success' ? (data.value ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Best-effort extraction of the first JSON object/array from an LLM reply. */
 export function extractJson<T = unknown>(text: string): T | null {
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);

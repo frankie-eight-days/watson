@@ -306,15 +306,16 @@ export class HermesAgent extends Agent<Env, HermesState> {
           engagementId: this.name,
           pitch: top,
           repoUrl: nextRepo,
-          ref: 'main',
+          candidateRef: 'feat/memory-compaction',
           sandboxRunnerUrl: this.sandboxRunnerUrl(),
-          baselineMean: 821.8,
+          convexApiUrl: this.env.CONVEX_URL,
+          goal,
           model,
         });
         lines.push(
           lab.ran
-            ? `Lab: ${lab.verdict} — candidate $${lab.metric} vs baseline $821.80.`
-            : `Lab: experiment pending (sandbox runner offline; retry when live).`,
+            ? `Lab: ${lab.verdict} — candidate $${lab.candidate?.toFixed(2)} vs baseline $${lab.baseline?.toFixed(2)}${lab.prUrl ? `; PR ${lab.prUrl}` : ''}.`
+            : `Lab: experiment pending (sandbox did not complete both arms; retry when healthy).`,
         );
       }
     } catch (err) {

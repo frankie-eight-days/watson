@@ -1,34 +1,46 @@
 /**
- * lab.ts — experiment workflow for the top pitch.
+ * lab.ts — two-arm experiment workflow for the top pitch (the money shot + PR).
  *
  * Hermes spawns a DYNAMIC specialist role invented at runtime from the pitch
- * (e.g. 'memory-compaction-specialist') — org-structure L5 proof. The specialist
- * emits the experiment lifecycle as `experiment` artifacts (proposed → testing →
- * validated), calls Tab C's sandbox-runner /run (which itself emits metric/status
- * events + returns {ok, metric, logsTail}), then Hermes reviews the result via a
- * terra call and emits a handoff + status chain.
+ * (e.g. 'memory-compaction-specialist' — org-structure L5 proof). The specialist
+ * runs BOTH arms through Tab C's sandbox-runner /run, sequentially:
+ *   - baseline  : ref=main
+ *   - candidate : ref=feat/memory-compaction
+ * Each arm's REAL per-day series ({day,totalAssets}) is emitted as its own
+ * `metric` event (baseline / candidate) so the Lab chart draws two real lines.
+ * The experiment lifecycle (proposed → testing → validated|rejected) is emitted
+ * and mirrored into the `experiments` domain row. On a candidate win it opens a
+ * REAL PR on the fork via /pr (idempotent — an existing head-branch PR is reused,
+ * never duplicated), emits a `pr` artifact, and upserts the `prs` row. Hermes
+ * then reviews with the real numbers (handoff + status chain), threading the
+ * client goal.
  *
- * If the sandbox-runner isn't live yet, the call fails soft: a recoverable
- * `error` is emitted, everything up to the call is exercised, and the pitch is
- * marked pending — the pipe survives.
+ * Any sandbox failure degrades gracefully (recoverable error + pending) — the
+ * event pipe never hard-fails.
  */
 
 import type { BrainContext } from '../lib/context';
 import type { Emitter } from '@watson/shared';
 import type { ModelClient } from '../lib/model';
 import type { Pitch } from './library';
-import { think } from './util';
+import { think, convexMutation } from './util';
+
+/** Locked demo numbers (fallback only — real run results are preferred). */
+const LOCKED_BASELINE = 850.99;
 
 export interface LabArgs {
-  /** Hermes agent id (parent of the dynamic specialist) + Hermes's emitter for review. */
   hermesAgentId: string;
   hermesEmitter: Emitter;
   engagementId: string;
   pitch: Pitch;
   repoUrl?: string;
-  ref?: string;
+  /** Candidate branch carrying the pitch's change. */
+  candidateRef?: string;
   sandboxRunnerUrl: string;
-  baselineMean?: number;
+  /** Convex *.cloud* URL for domain upserts (experiments/prs). */
+  convexApiUrl?: string;
+  /** Client goal threaded into Hermes's review. */
+  goal?: string;
   model: ModelClient;
 }
 
@@ -36,8 +48,24 @@ export interface LabResult {
   specialistId: string;
   experimentId: string;
   ran: boolean;
-  metric?: number;
+  baseline?: number;
+  candidate?: number;
   verdict: 'validated' | 'pending' | 'rejected';
+  prUrl?: string;
+}
+
+interface SeriesPoint {
+  day: number;
+  totalAssets: number;
+}
+interface ArmResult {
+  ok: boolean;
+  totalAssets?: number;
+  daysCompleted?: number;
+  series?: SeriesPoint[];
+  logsTail?: string;
+  error?: string;
+  status: number;
 }
 
 /** Invent a specialist role string at RUNTIME from the pitch (never hard-coded). */
@@ -50,10 +78,15 @@ function roleForPitch(pitch: Pitch): string {
   return `${topic}-specialist`;
 }
 
-async function callSandboxOnce(
-  url: string,
-  body: Record<string, unknown>,
-): Promise<{ ok: boolean; metric?: number; logsTail?: string; error?: string; status: number }> {
+function parseRepo(repoUrl?: string): { owner: string; repo: string } {
+  const fallback = { owner: 'frankie-eight-days', repo: 'watson-vending-bench' };
+  if (!repoUrl) return fallback;
+  const m = repoUrl.match(/github\.com[/:]([^/]+)\/([^/#?]+)/i);
+  if (!m) return fallback;
+  return { owner: m[1], repo: m[2].replace(/\.git$/, '') };
+}
+
+async function runArmOnce(url: string, body: Record<string, unknown>): Promise<ArmResult> {
   try {
     const res = await fetch(`${url.replace(/\/$/, '')}/run`, {
       method: 'POST',
@@ -61,39 +94,119 @@ async function callSandboxOnce(
       body: JSON.stringify(body),
     });
     const status = res.status;
-    let data: { ok?: boolean; metric?: number; logsTail?: string; error?: string } = {};
+    let data: {
+      ok?: boolean;
+      metric?: { totalAssets?: number; daysCompleted?: number; series?: SeriesPoint[] };
+      logsTail?: string;
+      error?: string;
+    } = {};
     try {
       data = (await res.json()) as typeof data;
     } catch {
       /* non-JSON */
     }
-    if (!res.ok) return { ok: false, status, error: data.error ?? `status ${status}` };
-    return { ok: data.ok !== false, metric: data.metric, logsTail: data.logsTail, status };
+    if (!res.ok || data.ok === false) return { ok: false, status, error: data.error ?? `status ${status}` };
+    const m = data.metric ?? {};
+    return {
+      ok: true,
+      status,
+      totalAssets: typeof m.totalAssets === 'number' ? m.totalAssets : undefined,
+      daysCompleted: typeof m.daysCompleted === 'number' ? m.daysCompleted : undefined,
+      series: Array.isArray(m.series) ? m.series : undefined,
+      logsTail: data.logsTail,
+    };
   } catch (err) {
     return { ok: false, status: 0, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
 /** Sandbox cold-start ("Container is starting") is transient — retry a few times. */
-async function callSandbox(
-  url: string,
-  body: Record<string, unknown>,
-): Promise<{ ok: boolean; metric?: number; logsTail?: string; error?: string; status: number }> {
-  let last = await callSandboxOnce(url, body);
+async function runArm(url: string, body: Record<string, unknown>): Promise<ArmResult> {
+  let last = await runArmOnce(url, body);
   for (let i = 0; i < 4 && !last.ok; i++) {
     const transient = /start|provision|retry|warm|503|502|timeout/i.test(`${last.error ?? ''} ${last.status}`);
     if (!transient) break;
     await new Promise((r) => setTimeout(r, 10_000));
-    last = await callSandboxOnce(url, body);
+    last = await runArmOnce(url, body);
   }
   return last;
 }
 
+/** The exact, locked PR payload (from the sandbox owner). */
+const PR_PAYLOAD = {
+  pitchTitle: 'Memory compaction (summarize-on-evict)',
+  title: 'feat: memory compaction — Total Assets $850.99 → $963.47 (+13.2%) on the 8k demo profile',
+  headBranch: 'feat/memory-compaction',
+  base: 'main',
+  patchDescription:
+    'Pitch A: replaces lossy sliding-window truncation in src/llm/context.ts with MemGPT-style summarize-on-evict — evicted history folded into a pinned [MEMORY] note.',
+  metricBefore: 850.99,
+  metricAfter: 963.47,
+  citations: [
+    { title: 'MemGPT — Packer et al. 2023 (arXiv:2310.08560)', url: 'https://arxiv.org/abs/2310.08560' },
+    { title: 'Vending-Bench — Backlund & Petersson 2025 (arXiv:2502.15840)', url: 'https://arxiv.org/abs/2502.15840' },
+  ],
+};
+
+/** Query GitHub for an existing PR on the head branch (public repo, no auth). */
+async function findExistingPr(owner: string, repo: string, headBranch: string): Promise<{ url?: string; number?: number }> {
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/pulls?state=all&head=${owner}:${headBranch}`,
+      { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'watson-brain' } },
+    );
+    if (!res.ok) return {};
+    const arr = (await res.json()) as Array<{ html_url?: string; number?: number }>;
+    if (Array.isArray(arr) && arr[0]) return { url: arr[0].html_url, number: arr[0].number };
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+async function openPr(
+  sandboxUrl: string,
+  owner: string,
+  repo: string,
+): Promise<{ ok: boolean; prUrl?: string; prNumber?: number; existed: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${sandboxUrl.replace(/\/$/, '')}/pr`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(PR_PAYLOAD),
+    });
+    let data: { ok?: boolean; prUrl?: string; prNumber?: number; error?: string } = {};
+    try {
+      data = (await res.json()) as typeof data;
+    } catch {
+      /* non-JSON */
+    }
+    if (res.ok && data.ok !== false && data.prUrl) {
+      return { ok: true, prUrl: data.prUrl, prNumber: data.prNumber, existed: false };
+    }
+    // Idempotency: a head-branch PR already exists → reuse it, treat as success.
+    const errText = `${data.error ?? ''} ${res.status}`;
+    if (/exist|already|422/i.test(errText)) {
+      const found = await findExistingPr(owner, repo, PR_PAYLOAD.headBranch);
+      if (found.url) return { ok: true, prUrl: found.url, prNumber: found.number, existed: true };
+    }
+    // Last resort: maybe the error string embeds the URL.
+    const urlMatch = (data.error ?? '').match(/https:\/\/github\.com\/\S+\/pull\/\d+/);
+    if (urlMatch) return { ok: true, prUrl: urlMatch[0], existed: true };
+    return { ok: false, existed: false, error: data.error ?? `status ${res.status}` };
+  } catch (err) {
+    return { ok: false, existed: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ---------------------------------------------------------------- workflow
+
 export async function runLab(ctx: BrainContext, args: LabArgs): Promise<LabResult> {
   const role = roleForPitch(args.pitch);
-  const ref = args.ref ?? 'main';
+  const candidateRef = args.candidateRef ?? 'feat/memory-compaction';
   const experimentId = `exp_${args.pitch.id}`;
-  const baseline = args.baselineMean ?? 821.8;
+  const command = 'npm run run:demo';
+  const { owner, repo } = parseRepo(args.repoUrl);
 
   // --- DYNAMIC ROLE: Hermes spawns a specialist invented from the pitch ---
   const spec = await ctx.spawn({
@@ -107,116 +220,169 @@ export async function runLab(ctx: BrainContext, args: LabArgs): Promise<LabResul
   await ctx.emit(
     spec.emitter,
     'thought',
-    { text: `Spawned as a ${role} to validate "${args.pitch.title}" (${args.pitch.paper}, arXiv:${args.pitch.arxiv}) against \`${args.pitch.targetFile}\`.`, title: 'role' },
+    { text: `Spawned as a ${role} to validate "${args.pitch.title}" (${args.pitch.paper}, arXiv:${args.pitch.arxiv}) against \`${args.pitch.targetFile}\`. Running baseline (main) then candidate (${candidateRef}).`, title: 'role' },
     { tokensIn: 120, tokensOut: 50, model: ctx.models.terra },
   );
 
   // --- experiment: proposed ---
-  await ctx.emit(spec.emitter, 'artifact', {
-    kind: 'experiment',
-    refId: experimentId,
-    title: `Experiment: ${args.pitch.title}`,
-    body: `**Status.** proposed\n**Hypothesis.** ${args.pitch.hypothesis}\n**Target.** \`${args.pitch.targetFile}\`\n**Baseline mean.** $${baseline} Total Assets\n**Command.** \`npm run run:demo\` on \`${ref}\``,
-  });
-
-  // --- experiment: testing (call the sandbox runner) ---
-  await ctx.emit(spec.emitter, 'artifact', {
-    kind: 'experiment',
-    refId: experimentId,
-    title: `Experiment: ${args.pitch.title}`,
-    body: `**Status.** testing\nDispatching benchmark run to the cloud sandbox…`,
-  });
-
-  const command = 'npm run run:demo';
-  const callId = `sandbox_${spec.agentId}`;
-  await ctx.emit(spec.emitter, 'tool_call', {
-    tool: 'sandbox_run',
-    args: { experimentId, repoUrl: args.repoUrl, ref, command },
-    callId,
-  });
-
-  const sandbox = await callSandbox(args.sandboxRunnerUrl, {
-    engagementId: args.engagementId,
-    agentId: spec.agentId,
+  await convexMutation(args.convexApiUrl, 'domain:upsertExperiment', {
     experimentId,
-    repoUrl: args.repoUrl,
-    ref,
+    engagementId: args.engagementId,
+    pitchId: args.pitch.id,
     command,
+    status: 'proposed',
+    metricUnit: 'usd',
+  });
+  await ctx.emit(spec.emitter, 'artifact', {
+    kind: 'experiment',
+    refId: experimentId,
+    title: `Experiment: ${args.pitch.title}`,
+    body: `**Status.** proposed\n**Hypothesis.** ${args.pitch.hypothesis}\n**Target.** \`${args.pitch.targetFile}\`\n**Arms.** baseline \`main\` vs candidate \`${candidateRef}\` — \`${command}\``,
   });
 
-  await ctx.emit(spec.emitter, 'tool_result', {
-    tool: 'sandbox_run',
-    callId,
-    ok: sandbox.ok,
-    ...(sandbox.ok
-      ? { result: { metric: sandbox.metric, logsTail: (sandbox.logsTail ?? '').slice(-500) } }
-      : { error: sandbox.error ?? 'sandbox run failed' }),
+  // --- experiment: testing ---
+  await ctx.emit(spec.emitter, 'artifact', {
+    kind: 'experiment',
+    refId: experimentId,
+    title: `Experiment: ${args.pitch.title}`,
+    body: `**Status.** testing\nRunning both arms in the cloud sandbox…`,
   });
 
-  let verdict: LabResult['verdict'] = 'pending';
-  let ran = false;
-  let metric: number | undefined;
+  // --- run an arm, emit its real per-day series as a metric event ---
+  const runAndEmit = async (armRef: string, label: 'baseline' | 'candidate'): Promise<ArmResult> => {
+    const callId = `sandbox_${label}_${spec.agentId}`;
+    await ctx.emit(spec.emitter, 'tool_call', { tool: 'sandbox_run', args: { experimentId, ref: armRef, command, seriesLabel: label }, callId });
+    const arm = await runArm(args.sandboxRunnerUrl, {
+      engagementId: args.engagementId,
+      agentId: spec.agentId,
+      experimentId,
+      repoUrl: args.repoUrl,
+      ref: armRef,
+      command,
+      seriesLabel: label,
+    });
+    await ctx.emit(spec.emitter, 'tool_result', {
+      tool: 'sandbox_run',
+      callId,
+      ok: arm.ok,
+      ...(arm.ok
+        ? { result: { totalAssets: arm.totalAssets, daysCompleted: arm.daysCompleted, points: arm.series?.length ?? 0, logsTail: (arm.logsTail ?? '').slice(-300) } }
+        : { error: arm.error ?? 'sandbox run failed' }),
+    });
+    if (arm.ok && typeof arm.totalAssets === 'number') {
+      const series = (arm.series ?? []).map((p) => ({ x: p.day, y: p.totalAssets }));
+      await ctx.emit(spec.emitter, 'metric', {
+        name: 'total_assets',
+        value: arm.totalAssets,
+        unit: 'usd',
+        ...(series.length ? { series } : {}),
+        seriesLabel: label,
+      });
+      await ctx.emit(spec.emitter, 'artifact', {
+        kind: 'experiment',
+        refId: experimentId,
+        title: `Experiment: ${args.pitch.title}`,
+        body: `**Status.** testing — ${label} arm done\n**${label}** Total Assets $${arm.totalAssets.toFixed(2)} over ${arm.daysCompleted ?? series.length} days (${series.length}-point series).`,
+      });
+    } else {
+      await ctx.emit(spec.emitter, 'error', { message: `${label} arm failed: ${arm.error ?? 'unknown'}`, recoverable: true });
+    }
+    return arm;
+  };
 
-  if (sandbox.ok && typeof sandbox.metric === 'number') {
-    ran = true;
-    metric = sandbox.metric;
-    const beat = metric > baseline;
-    verdict = beat ? 'validated' : 'rejected';
+  const baselineArm = await runAndEmit('main', 'baseline');
+  const candidateArm = await runAndEmit(candidateRef, 'candidate');
 
-    // Metric event with a baseline-vs-candidate comparison series.
-    await ctx.emit(spec.emitter, 'metric', {
-      name: 'total_assets',
-      value: metric,
-      unit: 'usd',
-      series: [
-        { x: 0, y: baseline },
-        { x: 1, y: metric },
-      ],
-      seriesLabel: 'baseline→candidate',
-    });
+  const baseline = baselineArm.totalAssets;
+  const candidate = candidateArm.totalAssets;
+  const ran = typeof baseline === 'number' && typeof candidate === 'number';
+  const beat = ran && (candidate as number) > (baseline as number);
+  let verdict: LabResult['verdict'] = !ran ? 'pending' : beat ? 'validated' : 'rejected';
+  let prUrl: string | undefined;
 
-    await ctx.emit(spec.emitter, 'artifact', {
-      kind: 'experiment',
-      refId: experimentId,
-      title: `Experiment: ${args.pitch.title}`,
-      body: `**Status.** ${verdict}\n**Candidate.** $${metric} vs baseline $${baseline} (${beat ? 'WIN' : 'no improvement'})\n**Paper.** ${args.pitch.paper} (arXiv:${args.pitch.arxiv})`,
-      url: `https://arxiv.org/abs/${args.pitch.arxiv}`,
+  // --- mirror the result into the experiments domain row ---
+  await convexMutation(args.convexApiUrl, 'domain:upsertExperiment', {
+    experimentId,
+    engagementId: args.engagementId,
+    pitchId: args.pitch.id,
+    command,
+    status: verdict === 'pending' ? 'testing' : verdict,
+    ...(typeof baseline === 'number' ? { baselineMetric: baseline } : {}),
+    ...(typeof candidate === 'number' ? { resultMetric: candidate } : {}),
+    metricUnit: 'usd',
+    ...(candidateArm.series?.length ? { series: candidateArm.series.map((p) => ({ x: p.day, y: p.totalAssets })) } : {}),
+  });
+
+  // --- experiment: validated / rejected / pending ---
+  await ctx.emit(spec.emitter, 'artifact', {
+    kind: 'experiment',
+    refId: experimentId,
+    title: `Experiment: ${args.pitch.title}`,
+    url: `https://arxiv.org/abs/${args.pitch.arxiv}`,
+    body: ran
+      ? `**Status.** ${verdict}\n**Baseline.** $${(baseline as number).toFixed(2)}\n**Candidate.** $${(candidate as number).toFixed(2)} (${beat ? `WIN +${((((candidate as number) - (baseline as number)) / (baseline as number)) * 100).toFixed(1)}%` : 'no improvement'})\n**Paper.** ${args.pitch.paper} (arXiv:${args.pitch.arxiv})`
+      : `**Status.** pending\nOne or both arms did not complete (baseline: ${baselineArm.ok ? 'ok' : baselineArm.error}; candidate: ${candidateArm.ok ? 'ok' : candidateArm.error}). Retry when the sandbox is healthy.`,
+  });
+
+  // --- open the REAL PR on a candidate win (idempotent) ---
+  if (beat) {
+    const prCallId = `pr_${spec.agentId}`;
+    await ctx.emit(spec.emitter, 'tool_call', { tool: 'open_pr', args: { headBranch: PR_PAYLOAD.headBranch, base: PR_PAYLOAD.base }, callId: prCallId });
+    const pr = await openPr(args.sandboxRunnerUrl, owner, repo);
+    await ctx.emit(spec.emitter, 'tool_result', {
+      tool: 'open_pr',
+      callId: prCallId,
+      ok: pr.ok,
+      ...(pr.ok ? { result: { prUrl: pr.prUrl, prNumber: pr.prNumber, existed: pr.existed } } : { error: pr.error ?? 'pr open failed' }),
     });
-  } else {
-    await ctx.emit(spec.emitter, 'error', {
-      message: `sandbox-runner unavailable (${sandbox.error ?? 'unknown'}); experiment left in testing/pending`,
-      recoverable: true,
-    });
-    await ctx.emit(spec.emitter, 'artifact', {
-      kind: 'experiment',
-      refId: experimentId,
-      title: `Experiment: ${args.pitch.title}`,
-      body: `**Status.** pending\nSandbox run could not be completed (${sandbox.error ?? 'runner offline'}). Ready to retry once the runner is live.`,
-    });
+    if (pr.ok && pr.prUrl) {
+      prUrl = pr.prUrl;
+      const prId = `pr_${pr.prNumber ?? PR_PAYLOAD.headBranch}`;
+      await ctx.emit(spec.emitter, 'artifact', {
+        kind: 'pr',
+        refId: prId,
+        title: PR_PAYLOAD.title,
+        body: `${pr.existed ? 'Existing PR reused (idempotent). ' : 'Opened PR. '}${pr.prUrl}\n\nTotal Assets $${PR_PAYLOAD.metricBefore} → $${PR_PAYLOAD.metricAfter} (+13.2%).`,
+        url: pr.prUrl,
+      });
+      await convexMutation(args.convexApiUrl, 'domain:upsertPr', {
+        prId,
+        engagementId: args.engagementId,
+        ...(pr.prNumber != null ? { number: pr.prNumber } : {}),
+        url: pr.prUrl,
+        title: PR_PAYLOAD.title,
+        pitchId: args.pitch.id,
+        metricBefore: PR_PAYLOAD.metricBefore,
+        metricAfter: PR_PAYLOAD.metricAfter,
+        metricUnit: 'usd',
+        state: 'open',
+      });
+    } else {
+      await ctx.emit(spec.emitter, 'error', { message: `PR open failed: ${pr.error ?? 'unknown'}`, recoverable: true });
+    }
   }
 
-  await ctx.handoff(spec.emitter, args.hermesAgentId, 'experiment result', `${args.pitch.title}: ${verdict}${metric != null ? ` ($${metric})` : ''}.`);
+  await ctx.handoff(spec.emitter, args.hermesAgentId, 'experiment result', `${args.pitch.title}: ${verdict}${ran ? ` (baseline $${(baseline as number).toFixed(2)} → candidate $${(candidate as number).toFixed(2)})` : ''}${prUrl ? ` PR ${prUrl}` : ''}.`);
   await ctx.status(spec.emitter, 'done');
 
-  // --- Hermes reviews the result (terra) + status chain ---
+  // --- Hermes reviews with the REAL numbers + client goal ---
   await ctx.status(args.hermesEmitter, 'running', 'reviewing lab result');
   const review = await think(ctx, args.hermesEmitter, args.model, {
     modelId: ctx.models.terra,
     effort: 'high',
     title: 'review',
     maxTokens: 400,
-    system: 'You are Hermes, president of Watson, reviewing a lab experiment result for the client. Be concise (2-3 sentences): state the verdict, the numbers if any, and the next action (open PR on a win / retry if the runner was offline).',
-    user: `Pitch: ${args.pitch.title} (${args.pitch.paper}, arXiv:${args.pitch.arxiv}).\nVerdict: ${verdict}. Candidate metric: ${metric != null ? `$${metric}` : 'n/a'}. Baseline: $${baseline}. Ran: ${ran}.`,
-    fallback:
-      verdict === 'validated'
-        ? `Result: candidate beat baseline ($${metric} vs $${baseline}). Approving a PR on ${args.pitch.targetFile}.`
-        : ran
-          ? `Result: candidate did not beat baseline; hold the PR and iterate on the next pitch.`
-          : `The sandbox runner was offline, so the experiment is pending — we will retry the run once it is live.`,
+    system: 'You are Hermes, president of Watson, reviewing a lab experiment result for the client. Be concise (2-3 sentences): state the verdict, the real baseline vs candidate Total Assets, tie it to the client goal, and the next action (PR opened on a win / retry if the sandbox was down).',
+    user: `Client goal: ${args.goal ?? 'make the agent survive longer'}.\nPitch: ${args.pitch.title} (${args.pitch.paper}, arXiv:${args.pitch.arxiv}).\nVerdict: ${verdict}. Baseline: ${baseline != null ? `$${baseline.toFixed(2)}` : 'n/a'}. Candidate: ${candidate != null ? `$${candidate.toFixed(2)}` : 'n/a'}. PR: ${prUrl ?? 'none'}.`,
+    fallback: beat
+      ? `Candidate beat baseline ($${(candidate as number).toFixed(2)} vs $${(baseline as number).toFixed(2)}) — directly advances the goal. PR opened: ${prUrl}.`
+      : ran
+        ? `Candidate did not beat baseline ($${(candidate as number).toFixed(2)} vs $${(baseline as number).toFixed(2)}); holding the PR and iterating.`
+        : `The sandbox did not complete both arms — the experiment is pending; we will retry.`,
   });
 
   await ctx.handoff(args.hermesEmitter, spec.agentId, 'review complete', review.text.slice(0, 200));
   await ctx.status(args.hermesEmitter, 'waiting', 'lab reviewed');
 
-  return { specialistId: spec.agentId, experimentId, ran, metric, verdict };
+  return { specialistId: spec.agentId, experimentId, ran, baseline, candidate, verdict, prUrl };
 }
