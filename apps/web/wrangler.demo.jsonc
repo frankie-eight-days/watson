@@ -1,0 +1,18 @@
+{
+  // Watson DEMO MIRROR — the isolated presentation surface. Same static-assets
+  // Worker as watson-web, but a SEPARATE target/URL (watson-demo.*). Built with
+  // VITE_DEMO_LOCKED=1 so it reads ONLY the bundled fixtures/demo-run.jsonl (no
+  // live Convex) and hides the source toggle + engagement switcher.
+  //
+  //   Build + deploy the mirror (from apps/web):
+  //     npm run deploy:demo
+  //   Update the run shown: replace ../../fixtures/demo-run.jsonl, then re-run it.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "watson-demo",
+  "compatibility_date": "2025-07-01",
+  "account_id": "b9adc0458ab5f7d63447a4f0a4b81d00",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}

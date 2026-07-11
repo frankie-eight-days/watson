@@ -8,6 +8,7 @@ import { NavLink } from 'react-router-dom';
 import { useEngagement } from '@/state/hooks';
 import { useAppMode } from '@/state/switcher';
 import { inferPhase } from '@/lib/fold';
+import { DEMO_LOCKED } from '@/lib/config';
 import { CostTicker } from './CostTicker';
 
 const icon = (d: string) => (
@@ -66,35 +67,46 @@ export function TopBar() {
       </nav>
 
       <div className="ml-auto flex items-center gap-3">
-        {/* engagement switcher */}
-        <div className="flex items-center gap-1.5">
-          {isDemo && (
+        {/* engagement switcher — hidden in the locked demo mirror (single run) */}
+        {DEMO_LOCKED ? (
+          <span className="flex items-center gap-1.5">
             <span className="rounded-pill bg-[color:var(--warning-soft)] px-1.5 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wider text-[color:var(--warning)]">
               Demo
             </span>
-          )}
-          <div className="relative">
-            <select
-              value={engagementId}
-              onChange={(e) => setEngagementId(e.target.value)}
-              className="focus-ring max-w-[190px] appearance-none truncate rounded-lg border border-hairline bg-surface-2 py-1.5 pl-2.5 pr-7 text-[0.8125rem] font-medium text-ink"
-            >
-              {options.length === 0 ? (
-                <option value="">No live engagements</option>
-              ) : (
-                options.map((opt) => (
-                  <option key={opt.engagementId} value={opt.engagementId}>
-                    {opt.demo ? '◆ ' : ''}
-                    {opt.title}
-                  </option>
-                ))
-              )}
-            </select>
-            <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-ink-3" width="9" height="9" viewBox="0 0 10 10">
-              <path d="M2 3.5 L5 6.5 L8 3.5" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <span className="max-w-[190px] truncate text-[0.8125rem] font-medium text-ink">
+              {options[0]?.title ?? 'demo run'}
+            </span>
+          </span>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            {isDemo && (
+              <span className="rounded-pill bg-[color:var(--warning-soft)] px-1.5 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wider text-[color:var(--warning)]">
+                Demo
+              </span>
+            )}
+            <div className="relative">
+              <select
+                value={engagementId}
+                onChange={(e) => setEngagementId(e.target.value)}
+                className="focus-ring max-w-[190px] appearance-none truncate rounded-lg border border-hairline bg-surface-2 py-1.5 pl-2.5 pr-7 text-[0.8125rem] font-medium text-ink"
+              >
+                {options.length === 0 ? (
+                  <option value="">No live engagements</option>
+                ) : (
+                  options.map((opt) => (
+                    <option key={opt.engagementId} value={opt.engagementId}>
+                      {opt.demo ? '◆ ' : ''}
+                      {opt.title}
+                    </option>
+                  ))
+                )}
+              </select>
+              <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-ink-3" width="9" height="9" viewBox="0 0 10 10">
+                <path d="M2 3.5 L5 6.5 L8 3.5" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
           </div>
-        </div>
+        )}
 
         <span className="hidden rounded-pill bg-surface-2 px-2 py-0.5 text-[0.625rem] font-medium text-ink-2 lg:block">
           {phase}

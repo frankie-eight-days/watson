@@ -8,8 +8,9 @@
  * `null` in pure-offline builds (no CONVEX_URL) — the app then runs the fixture.
  */
 import { ConvexReactClient } from 'convex/react';
-import { CONVEX_URL } from './config';
+import { CONVEX_URL, DEMO_LOCKED } from './config';
 
-export const convex: ConvexReactClient | null = CONVEX_URL
-  ? new ConvexReactClient(CONVEX_URL)
-  : null;
+// Never connect to live Convex in the locked demo build — the mirror is
+// fixture-only and must never surface live/test engagements.
+export const convex: ConvexReactClient | null =
+  !DEMO_LOCKED && CONVEX_URL ? new ConvexReactClient(CONVEX_URL) : null;

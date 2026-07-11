@@ -11,6 +11,7 @@ interface ImportMetaEnv {
   readonly VITE_EVENT_SOURCE?: string;
   readonly VITE_BRAIN_WS?: string;
   readonly VITE_BRAIN_HTTP?: string;
+  readonly VITE_DEMO_LOCKED?: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;

@@ -162,28 +162,28 @@ export function BenchView() {
           )}
         </div>
 
-        {/* target repository */}
-        <label htmlFor="repo-url" className="eyebrow mb-1.5 block">
+        {/* target repository — compact single-line field + inline COMMENCE */}
+        <label htmlFor="repo-url" className="eyebrow mb-1 block">
           Target repository
         </label>
-        <input
-          id="repo-url"
-          value={repoUrl}
-          onChange={(e) => {
-            setRepoEdited(true);
-            setRepoUrl(e.target.value);
-          }}
-          disabled={running}
-          spellCheck={false}
-          autoComplete="off"
-          placeholder="https://github.com/owner/repo"
-          className="focus-ring block w-full rounded-lg border border-hairline bg-surface-2 px-3 py-2 font-mono text-[0.875rem] tabular-nums tracking-tight text-ink placeholder:text-ink-3 disabled:opacity-50"
-        />
-        <div className="mt-2 flex justify-end">
+        <div className="flex items-center gap-2">
+          <input
+            id="repo-url"
+            value={repoUrl}
+            onChange={(e) => {
+              setRepoEdited(true);
+              setRepoUrl(e.target.value);
+            }}
+            disabled={running}
+            spellCheck={false}
+            autoComplete="off"
+            placeholder="https://github.com/owner/repo"
+            className="focus-ring h-10 min-w-0 flex-1 rounded-lg border border-hairline bg-surface-2 px-3 font-mono text-base tabular-nums tracking-tight text-ink placeholder:text-ink-3 disabled:opacity-50"
+          />
           <button
             onClick={doCommence}
             disabled={!canCommence}
-            className={`focus-ring flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-6 py-2.5 text-sm font-semibold tracking-wide transition-opacity ${
+            className={`focus-ring flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-semibold tracking-wide transition-opacity ${
               running
                 ? 'cursor-not-allowed bg-surface-2 text-ink-3'
                 : 'bg-accent text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40'

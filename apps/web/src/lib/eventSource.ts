@@ -15,9 +15,17 @@
 import { makeFunctionReference } from 'convex/server';
 import type { ConvexReactClient } from 'convex/react';
 import type { WatsonEvent } from '@watson/shared';
-// The fixture is imported as a raw asset (Vite ?raw) — single source of truth,
-// never copied into this app. This is the offline event stream.
+import { DEMO_LOCKED } from './config';
+// Fixtures imported as raw assets (Vite ?raw), never copied into this app.
+//  - mock-engagement.jsonl : the FROZEN contract fixture (dev + ?source=fixture).
+//  - demo-run.jsonl        : the swappable presentation run bundled by the locked
+//    demo mirror (watson-demo). To update the mirror: replace fixtures/demo-run.jsonl
+//    and redeploy — one step. It never touches the frozen contract fixture.
 import fixtureRaw from '@fixtures/mock-engagement.jsonl?raw';
+import demoRaw from '@fixtures/demo-run.jsonl?raw';
+
+/** The bundled event stream for offline/fixture mode (demo run when locked). */
+const ACTIVE_FIXTURE_RAW = DEMO_LOCKED ? demoRaw : fixtureRaw;
 
 /**
  * The one live query the stream needs: an inclusive [startSeq, endSeq] window.
@@ -59,7 +67,7 @@ export function parseFixture(raw: string): WatsonEvent[] {
 export class FixtureEventSource implements EngagementSource {
   private readonly all: WatsonEvent[];
 
-  constructor(raw: string = fixtureRaw) {
+  constructor(raw: string = ACTIVE_FIXTURE_RAW) {
     this.all = parseFixture(raw);
   }
 

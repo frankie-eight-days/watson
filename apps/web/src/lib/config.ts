@@ -13,10 +13,20 @@
  */
 export type EventSourceKind = 'fixture' | 'convex';
 
+/**
+ * DEMO_LOCKED — the isolated presentation build (VITE_DEMO_LOCKED=1, deployed as
+ * `watson-demo`). It reads ONLY the bundled demo fixture (no live Convex, so it
+ * can never surface test/junk engagements), hides the source toggle + engagement
+ * switcher, and locks to the single demo engagement — while keeping the ReplayBar
+ * scrubber (it's a recorded run; scrubbing is the point).
+ */
+export const DEMO_LOCKED: boolean = import.meta.env.VITE_DEMO_LOCKED === '1';
+
 /** The Convex deployment URL, read from Vite env when running live. */
 export const CONVEX_URL: string | undefined = import.meta.env.VITE_CONVEX_URL;
 
 function resolveSource(): EventSourceKind {
+  if (DEMO_LOCKED) return 'fixture';
   if (typeof window !== 'undefined') {
     const q = new URLSearchParams(window.location.search).get('source');
     if (q === 'fixture' || q === 'convex') return q;

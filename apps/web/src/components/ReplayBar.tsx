@@ -6,7 +6,7 @@
  * so the timeline reads like a lab instrument, not a bare slider.
  */
 import { useCallback, useEffect, useRef } from 'react';
-import { REPLAY } from '@/lib/config';
+import { REPLAY, DEMO_LOCKED } from '@/lib/config';
 import { useEngagement, useReplay } from '@/state/hooks';
 import { useAppMode } from '@/state/switcher';
 import { formatClock, formatElapsed } from '@/lib/format';
@@ -66,29 +66,32 @@ export function ReplayBar() {
   return (
     <div className="flex items-center gap-3 border-t border-hairline bg-surface px-4 py-2.5">
       {/* demo-replay toggle (controls demo-engagement visibility; scrubber below
-          works on ANY engagement, demo or a real recorded run) */}
-      <button
-        onClick={() => setShowDemo(!showDemo)}
-        role="switch"
-        aria-checked={showDemo}
-        className="focus-ring flex shrink-0 items-center gap-2 rounded-pill border border-hairline bg-surface-2 py-1 pl-1.5 pr-2.5"
-        title={showDemo ? 'Hide the demo engagement from the switcher' : 'Show the demo engagement'}
-      >
-        <span
-          className="relative h-4 w-7 rounded-full transition-colors"
-          style={{ background: showDemo ? 'var(--accent)' : 'var(--surface-3)' }}
+          works on ANY engagement). Hidden in the locked demo mirror — there the
+          whole build is the recorded run, so a toggle would be meaningless. */}
+      {!DEMO_LOCKED && (
+        <button
+          onClick={() => setShowDemo(!showDemo)}
+          role="switch"
+          aria-checked={showDemo}
+          className="focus-ring flex shrink-0 items-center gap-2 rounded-pill border border-hairline bg-surface-2 py-1 pl-1.5 pr-2.5"
+          title={showDemo ? 'Hide the demo engagement from the switcher' : 'Show the demo engagement'}
         >
           <span
-            className="absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-card transition-transform"
-            style={{ left: 2, transform: showDemo ? 'translateX(12px)' : 'translateX(0)' }}
-          />
-        </span>
-        <span className="whitespace-nowrap text-[0.6875rem] font-medium text-ink-2">Demo replay</span>
-      </button>
+            className="relative h-4 w-7 rounded-full transition-colors"
+            style={{ background: showDemo ? 'var(--accent)' : 'var(--surface-3)' }}
+          >
+            <span
+              className="absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-card transition-transform"
+              style={{ left: 2, transform: showDemo ? 'translateX(12px)' : 'translateX(0)' }}
+            />
+          </span>
+          <span className="whitespace-nowrap text-[0.6875rem] font-medium text-ink-2">Demo replay</span>
+        </button>
+      )}
 
       {isDemo && (
         <span className="hidden shrink-0 rounded-pill bg-[color:var(--warning-soft)] px-2 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wider text-[color:var(--warning)] sm:block">
-          Demo data · not live
+          {DEMO_LOCKED ? 'Recorded run' : 'Demo data · not live'}
         </span>
       )}
 
