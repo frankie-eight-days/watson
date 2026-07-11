@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "watson-podcast",
+  "account_id": "b9adc0458ab5f7d63447a4f0a4b81d00",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "vars": {
+    "CONVEX_URL": "https://friendly-sheep-865.convex.cloud",
+    "CONVEX_SITE_URL": "https://friendly-sheep-865.convex.site",
+    "MODEL_TERRA": "gpt-5.6-terra",
+    "VOICE_HOST": "hpp4J3VqNfWAUOO0d1Us",
+    "VOICE_WATSON": "JBFqnCBsd6RMkjVDRZzb"
+  }
+}

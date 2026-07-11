@@ -18,6 +18,7 @@ import type * as ingest from "../ingest.js";
 import type * as memory from "../memory.js";
 import type * as metrics from "../metrics.js";
 import type * as observability from "../observability.js";
+import type * as podcast from "../podcast.js";
 import type * as runs from "../runs.js";
 import type * as steering from "../steering.js";
 import type * as util from "../util.js";
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   memory: typeof memory;
   metrics: typeof metrics;
   observability: typeof observability;
+  podcast: typeof podcast;
   runs: typeof runs;
   steering: typeof steering;
   util: typeof util;

@@ -15,6 +15,7 @@ declare global {
     // ---- secrets (.dev.vars / `wrangler secret put`) ----
     OPENAI_API_KEY: string;
     LINKUP_API_KEY?: string;
+    EXA_API_KEY?: string;
     // ---- optional var not always present in wrangler.jsonc ----
     OPENAI_BASE_URL?: string;
   }

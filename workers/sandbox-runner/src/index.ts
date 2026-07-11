@@ -52,28 +52,95 @@ function tail(s: string, n = 4000): string {
   return s.length <= n ? s : s.slice(s.length - n);
 }
 
-/** Extract the last well-formed JSON object from a string (metric extractor stdout). */
-function lastJsonObject(s: string): any | null {
-  const start = s.lastIndexOf("{");
-  // walk backwards trying candidate opening braces until one parses
-  let idx = s.length;
-  while (true) {
-    const open = s.lastIndexOf("{", idx - 1);
-    if (open < 0) break;
-    const candidate = s.slice(open);
-    // try to find matching end by trimming trailing noise
-    for (let end = candidate.length; end > 0; end--) {
-      const sub = candidate.slice(0, end);
-      if (!sub.trimEnd().endsWith("}")) continue;
-      try {
-        return JSON.parse(sub);
-      } catch {
-        /* keep shrinking */
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Transient container cold-start errors that should be retried, not surfaced. */
+function isTransient(e: unknown): boolean {
+  const msg = (e instanceof Error ? e.message : String(e)).toLowerCase();
+  return (
+    msg.includes("container is starting") ||
+    msg.includes("please retry") ||
+    msg.includes("not ready") ||
+    msg.includes("is starting") ||
+    msg.includes("503") ||
+    msg.includes("no instance")
+  );
+}
+
+/** sandbox.exec with retry on transient cold-start errors. */
+async function execR(
+  sandbox: any,
+  command: string,
+  options?: any,
+  tries = 10,
+): Promise<any> {
+  let last: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await sandbox.exec(command, options);
+    } catch (e) {
+      last = e;
+      if (!isTransient(e)) throw e;
+      await sleep(4000);
+    }
+  }
+  throw last;
+}
+
+/** sandbox.readFile with retry on transient cold-start errors. */
+async function readFileR(sandbox: any, path: string, tries = 6): Promise<any> {
+  let last: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await sandbox.readFile(path);
+    } catch (e) {
+      last = e;
+      if (!isTransient(e)) throw e;
+      await sleep(3000);
+    }
+  }
+  throw last;
+}
+
+/**
+ * Extract the metric JSON from the extractor's stdout. The extractor prints
+ * exactly one pretty-printed top-level object; grab the FIRST balanced `{...}`
+ * (brace-matched, string-aware) so nested `series` entries never win.
+ */
+function parseMetricJson(s: string): any | null {
+  // Fast path: whole stdout is the JSON.
+  const trimmed = s.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    /* fall through to brace matching */
+  }
+  const first = s.indexOf("{");
+  if (first < 0) return null;
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = first; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) {
+        try {
+          return JSON.parse(s.slice(first, i + 1));
+        } catch {
+          return null;
+        }
       }
     }
-    idx = open;
   }
-  void start;
   return null;
 }
 
@@ -115,16 +182,20 @@ async function handleRun(req: Request, env: Env): Promise<Response> {
   try {
     await emit.status("running", `provisioning sandbox for ${experimentId}`);
 
+    // 0. Warm up the container so subsequent calls don't race the cold start.
+    await execR(sandbox, "true", { timeout: 30_000 });
+
     // 1. Clean any prior checkout, clone fresh.
-    await sandbox.exec(`rm -rf ${repoDir}`);
+    await execR(sandbox, `rm -rf ${repoDir}`);
     await emit.status("running", `cloning ${repoUrl} @ ${ref}`);
-    const clone = await sandbox.exec(
+    const clone = await execR(
+      sandbox,
       `git clone --depth 1 --branch ${ref} ${repoUrl} ${repoDir}`,
       { timeout: 120_000 },
     );
     if (!clone.success) {
       // fall back to default-branch clone + checkout (ref may be a sha)
-      const clone2 = await sandbox.exec(`git clone ${repoUrl} ${repoDir}`, { timeout: 120_000 });
+      const clone2 = await execR(sandbox, `git clone ${repoUrl} ${repoDir}`, { timeout: 120_000 });
       if (!clone2.success) {
         await emit.error(`clone failed: ${tail(clone.stderr, 500)}`, { fatal: true });
         return Response.json(
@@ -132,12 +203,12 @@ async function handleRun(req: Request, env: Env): Promise<Response> {
           { status: 500 },
         );
       }
-      await sandbox.exec(`git checkout ${ref}`, { cwd: repoDir, timeout: 60_000 });
+      await execR(sandbox, `git checkout ${ref}`, { cwd: repoDir, timeout: 60_000 });
     }
 
     // 2. Install deps.
     await emit.status("running", "npm install");
-    const install = await sandbox.exec(`npm install --no-audit --no-fund`, {
+    const install = await execR(sandbox, `npm install --no-audit --no-fund`, {
       cwd: repoDir,
       timeout: 300_000,
     });
@@ -154,12 +225,12 @@ async function handleRun(req: Request, env: Env): Promise<Response> {
     // 3. Run the experiment command, streaming per-day metric points.
     await emit.status("running", `executing: ${command}`);
     const totalDaysBox = { total: 30 };
-    const run = await sandbox.exec(command, {
+    const run = await execR(sandbox, command, {
       cwd: repoDir,
       timeout: 600_000,
       env: runEnv,
       stream: true,
-      onOutput: (streamName, data) => {
+      onOutput: (streamName: "stdout" | "stderr", data: string) => {
         if (streamName === "stdout") stdoutBuf += data;
         else stderrBuf += data;
         // parse day lines as they arrive (data may contain multiple lines)
@@ -191,18 +262,29 @@ async function handleRun(req: Request, env: Env): Promise<Response> {
 
     // 4. Extract the canonical metric JSON.
     await emit.status("running", "extracting metric");
-    const metricRes = await sandbox.exec(
-      `npx tsx scripts/extract-metric.ts --log-dir logs`,
+    const metricOut = `${repoDir}/logs/metric.json`;
+    const metricRes = await execR(
+      sandbox,
+      `npx tsx scripts/extract-metric.ts --log-dir logs --out ${metricOut}`,
       { cwd: repoDir, timeout: 60_000 },
     );
-    const metric = lastJsonObject(metricRes.stdout);
+    // Read the metric from the file the extractor wrote (bypasses any stdout
+    // noise from npx/tsx cold-start). Fall back to parsing stdout if needed.
+    let metric: any = null;
+    try {
+      const fileRes = await readFileR(sandbox, metricOut);
+      if (fileRes.success && fileRes.content) metric = parseMetricJson(fileRes.content);
+    } catch {
+      /* fall back to stdout */
+    }
+    if (!metric) metric = parseMetricJson(metricRes.stdout);
     if (!metric) {
       await emit.error("metric extraction produced no JSON", { fatal: true });
       return Response.json(
         {
           ok: false,
           error: "metric extraction failed",
-          logsTail: tail(stderrBuf + "\n" + metricRes.stderr),
+          logsTail: tail(stderrBuf + "\n" + metricRes.stdout + "\n" + metricRes.stderr),
         },
         { status: 500 },
       );
