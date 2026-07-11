@@ -12,8 +12,8 @@ When the last box ticks, Frank tells the architect session "run checkpoint 1". D
 
 ### Tab B — Brain
 - [x] Skeleton deployed to Cloudflare (URL: https://watson-brain.frankkevinwalsh.workers.dev) — Worker + HermesAgent DO; /health 200, bench WS upgrade route live
-- [ ] Bench WebSocket chat responds (Hermes says hello via terra) — foundation built (model/harness/context/hermes loop), NOT yet verified end-to-end (build paused mid-verify)
-- [ ] Toy workflow emits real events into Convex (engagementId: ) — toy.ts + toy-proof.ts written, JSONL proof not yet confirmed green
+- [x] Bench WebSocket chat responds (Hermes says hello via terra) — VERIFIED end-to-end vs deployed URL; gpt-5.6-terra reachable via api.openai.com (no base URL); events land in Convex
+- [x] Toy workflow emits real events into Convex (engagementId: eng_toy_probe1) — commence → all 10 event types written, well-formed spawn tree
 
 ### Tab C — Fork + Sandbox
 - [x] Fork runs locally, metric extracted (baseline numbers: run1 = $985.50 total assets; mean pending runs 2&3). gpt-5.6-luna via new OpenAI provider; demo profile = 30d/seed42/~100s/$0.93
