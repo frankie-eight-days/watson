@@ -44,11 +44,15 @@
         rates[w] = parseFloat(wraps[w].getAttribute('data-rate')) || 0;
       }
       var ticking = false;
+      var MAX = 40; // clamp travel so motifs stay in their whitespace band
       var updateParallax = function () {
         var y = window.pageYOffset || 0;
         for (var m = 0; m < wraps.length; m++) {
-          var dy = y * rates[m];
-          var rot = y * rates[m] * 0.12;
+          var raw = y * rates[m];
+          // Float UP into the surrounding whitespace (never down toward the
+          // hero text), clamped so the excursion can't reach the text bounds.
+          var dy = -Math.min(raw, MAX);
+          var rot = Math.max(-5, Math.min(5, raw * 0.06));
           wraps[m].style.transform =
             'translate3d(0,' + dy.toFixed(1) + 'px,0) rotate(' + rot.toFixed(2) + 'deg)';
         }
