@@ -118,8 +118,6 @@ const STEPS: TourStep[] = [
   },
 ];
 
-const LIVE_APP_URL = 'https://watson-web.frankkevinwalsh.workers.dev';
-
 const PAD = 6;
 const CARD_W = 340;
 
@@ -380,24 +378,12 @@ export function Tour({
           >
             Back
           </button>
-          {atEnd ? (
-            <a
-              href={LIVE_APP_URL}
-              target="_blank"
-              rel="noreferrer"
-              onClick={onClose}
-              className="focus-ring rounded-lg bg-accent px-4 py-1.5 text-[0.8125rem] font-semibold text-white transition-opacity hover:opacity-90"
-            >
-              Run a real one →
-            </a>
-          ) : (
-            <button
-              onClick={next}
-              className="focus-ring rounded-lg bg-accent px-4 py-1.5 text-[0.8125rem] font-semibold text-white transition-opacity hover:opacity-90"
-            >
-              Next →
-            </button>
-          )}
+          <button
+            onClick={next}
+            className="focus-ring rounded-lg bg-accent px-4 py-1.5 text-[0.8125rem] font-semibold text-white transition-opacity hover:opacity-90"
+          >
+            {atEnd ? 'Explore the demo →' : 'Next →'}
+          </button>
         </div>
       </div>
     </div>
